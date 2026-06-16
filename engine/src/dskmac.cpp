@@ -2813,12 +2813,20 @@ struct MCMacDesktop: public MCSystemInterface, public MCMacSystemService
         
         MCinfinity = HUGE_VAL;
         
-        SInt32 t_major, t_minor, t_bugfix;
-        if (Gestalt(gestaltSystemVersionMajor, &t_major) == noErr &&
-            Gestalt(gestaltSystemVersionMinor, &t_minor) == noErr &&
-            Gestalt(gestaltSystemVersionBugFix, &t_bugfix) == noErr)
+        // Fix for systemversion bug: Use sw_vers command instead of deprecated Gestalt
+        FILE *t_pipe = popen("sw_vers -productVersion", "r");
+        if (t_pipe != NULL)
         {
-			MCmajorosversion = MCOSVersionMake(t_major, t_minor, t_bugfix);
+            char t_version_str[256];
+            if (fgets(t_version_str, sizeof(t_version_str), t_pipe) != NULL)
+            {
+                // Remove newline and parse version string like "11.7.10"
+                t_version_str[strcspn(t_version_str, "\n")] = 0;
+                int t_major = 0, t_minor = 0, t_bugfix = 0;
+                sscanf(t_version_str, "%d.%d.%d", &t_major, &t_minor, &t_bugfix);
+                MCmajorosversion = MCOSVersionMake(t_major, t_minor, t_bugfix);
+            }
+            pclose(t_pipe);
         }
 		
         MCaqua = True; // Move to MCScreenDC
@@ -2978,11 +2986,23 @@ struct MCMacDesktop: public MCSystemInterface, public MCMacSystemService
     
 	virtual bool GetVersion(MCStringRef& r_version)
     {
-        SInt32 t_major, t_minor, t_bugfix;
-        Gestalt(gestaltSystemVersionMajor, &t_major);
-        Gestalt(gestaltSystemVersionMinor, &t_minor);
-        Gestalt(gestaltSystemVersionBugFix, &t_bugfix);
-        return MCStringFormat(r_version, "%d.%d.%d", t_major, t_minor, t_bugfix);
+        // Fix for systemversion bug: Use sw_vers command instead of deprecated Gestalt
+        FILE *t_pipe = popen("sw_vers -productVersion", "r");
+        if (t_pipe != NULL)
+        {
+            char t_version_str[256];
+            if (fgets(t_version_str, sizeof(t_version_str), t_pipe) != NULL)
+            {
+                // Remove newline and return the version string directly (e.g., "11.7.10")
+                t_version_str[strcspn(t_version_str, "\n")] = 0;
+                pclose(t_pipe);
+                return MCStringCreateWithCString(t_version_str, r_version);
+            }
+            pclose(t_pipe);
+        }
+        
+        // Should not reach here, but return empty string if sw_vers fails
+        return MCStringCreateWithCString("", r_version);
     }
 	virtual bool GetMachine(MCStringRef& r_string)
     {
@@ -3927,8 +3947,8 @@ struct MCMacDesktop: public MCSystemInterface, public MCMacSystemService
         if (p_map && MCmmap && p_mode == kMCOpenFileModeRead)
         {
             int t_fd = open(*t_path_utf, O_RDONLY);
-            struct stat64 t_buf;
-            if (t_fd != -1 && !fstat64(t_fd, &t_buf))
+            struct stat t_buf;
+            if (t_fd != -1 && !fstat(t_fd, &t_buf))
             {
 				// The length of a file could be > 32-bit, so we have to check that
 				// the file size fits into a 32-bit integer as that is what mmap expects.

@@ -13,7 +13,6 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
-
 #include "prefix.h"
 
 #ifdef __VISUALC__
@@ -21,9 +20,17 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 #pragma optimize("y", off)
 #endif
 
-typedef unsigned int uint32_t;
-typedef unsigned short uint16_t; 
-typedef unsigned char uint8_t;
+// Disable enum conversion warnings for this file since the template dispatch mechanism
+// intentionally uses enum casting as a compile-time dispatch mechanism
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wenum-constexpr-conversion"
+#endif
+
+#include <cstdint>
+
+// Standard fixed-width integer types are available from system headers
+// Remove the typedefs that conflict with standard library definitions
 
 static uint32_t g_current_background_colour = 0;
 
@@ -1388,3 +1395,7 @@ surface_combiner_t s_surface_combiners_nda[] =
 	surface_combine<OPERATION_BLEND_DIFFERENCE, false, true>,
 	surface_combine<OPERATION_BLEND_EXCLUSION, false, true>,
 };
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif

@@ -18,6 +18,8 @@
 
 extern const char *MapFile(const char *);
 
+void Told(void);
+
 static char OutBuf[OutBufSize];
 static char *OutBufPtr;
 static FILE *OutFile;
@@ -25,8 +27,7 @@ static long OutFileIsOpen = 0;
 
 /*----------------------------------------------------------------------------*/
 
-Tell(Name)
-   char *Name;
+void Tell(char *Name)
 {
    Told();
    OutFile = fopen(MapFile(Name), "w");
@@ -40,7 +41,7 @@ Tell(Name)
 
 /*----------------------------------------------------------------------------*/
 
-Told()
+void Told()
 {
    if (OutFileIsOpen) {
       fwrite(OutBuf, 1, OutBufPtr - &OutBuf[0], OutFile);
@@ -51,8 +52,7 @@ Told()
 
 /*----------------------------------------------------------------------------*/
 
-s(Str)
-   char *Str;
+void s(char *Str)
 {
    while(*Str) {
       *OutBufPtr++ = *Str++; 
@@ -61,8 +61,7 @@ s(Str)
 
 /*----------------------------------------------------------------------------*/
 
-qu_s(Str)
-   char *Str;
+void qu_s(char *Str)
 {
    *OutBufPtr++ = '\"';
 
@@ -95,15 +94,14 @@ qu_s(Str)
 
 /*----------------------------------------------------------------------------*/
 
-doublequote ()
+void doublequote ()
 {
    s("\"");
 }
 
 /*----------------------------------------------------------------------------*/
 
-i(N)
-   long N;
+void i(long N)
 {
    long butlast;
    long last;
@@ -119,7 +117,7 @@ i(N)
 
 /*----------------------------------------------------------------------------*/
 
-nl()
+void nl()
 {
 #ifdef EMIT_CR
    *OutBufPtr++ = '\r';
@@ -137,15 +135,14 @@ nl()
 
 /*----------------------------------------------------------------------------*/
 
-/* --PATCH-- */SetOption_SUBDIR(const char *v)
+/* --PATCH-- */void SetOption_SUBDIR(const char *v)
 {
 /* --PATCH-- */    SUBDIR = v;
 }
 
 /*----------------------------------------------------------------------------*/
 
-TellFile(Name)
-   char *Name;
+void TellFile(char *Name)
 {
    char buf[4096];
 
@@ -158,7 +155,7 @@ TellFile(Name)
 
 /*----------------------------------------------------------------------------*/
 
-TellClauseFile()
+void TellClauseFile()
 {
    char name[4096];
    extern char *SourceName();
@@ -170,7 +167,7 @@ TellClauseFile()
 
 /*----------------------------------------------------------------------------*/
 
-TellSymbolFile()
+void TellSymbolFile()
 {
    char name[4096];
    extern char *SourceName();
@@ -182,7 +179,7 @@ TellSymbolFile()
 
 /*----------------------------------------------------------------------------*/
 
-TellXRefFile()
+void TellXRefFile()
 {
    char name[4096];
    extern char *SourceName();

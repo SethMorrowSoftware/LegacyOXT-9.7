@@ -19,8 +19,8 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 
 #include <Carbon/Carbon.h>
 #include <WebKit/WebKit.h>
-#include <WebKit/HIWebView.h>
-#include <WebKit/CarbonUtils.h>
+// #include <WebKit/HIWebView.h>  // Deprecated in macOS 12.1 SDK
+// #include <WebKit/CarbonUtils.h>  // Deprecated in macOS 12.1 SDK
 #include <WebKit/WebUIDelegate.h>
 
 #ifndef __REVBROWSER__

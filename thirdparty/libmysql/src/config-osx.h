@@ -167,7 +167,7 @@
 # define HAVE_CHAR 1
 #endif
 
-#define SIZEOF_CHARP 4
+#define SIZEOF_CHARP 8
 #if SIZEOF_CHARP
 # define HAVE_CHARP 1
 #endif
@@ -182,7 +182,7 @@
 # define HAVE_INT 1
 #endif
 
-#define SIZEOF_LONG 4
+#define SIZEOF_LONG 8
 #if SIZEOF_LONG
 # define HAVE_LONG 1
 #endif
@@ -198,11 +198,12 @@
 #endif
 
 #define SIZEOF_SIGSET_T 4
+/* Note: sigset_t is 4 bytes on macOS (both 32-bit and 64-bit) */
 #if SIZEOF_SIGSET_T
 # define HAVE_SIGSET_T 1
 #endif
 
-#define SIZEOF_SIZE_T 4
+#define SIZEOF_SIZE_T 8
 #if SIZEOF_SIZE_T
 # define HAVE_SIZE_T 1
 #endif
@@ -263,6 +264,7 @@
 #endif
 
 #define SIZEOF_SOCKLEN_T 4
+/* Note: socklen_t is 4 bytes on macOS (both 32-bit and 64-bit) */
 #if SIZEOF_SOCKLEN_T
 # define HAVE_SOCKLEN_T 1
 #endif

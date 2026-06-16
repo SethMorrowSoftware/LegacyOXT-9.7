@@ -1,6 +1,7 @@
 /* --PATCH-- */ #include <stdlib.h>
 /* --PATCH-- */ #include <stdio.h>
 /* --PATCH-- */ #include <string.h>
+/* --PATCH-- */ #include <ctype.h>
 /*
    GENTLE 97 CAMPUS EDITION
 
@@ -20,11 +21,17 @@
 
 int ErrorOccurred = 0;
 
-static scanargs();
+/* Forward declarations */
+extern void init_scanner(void);
+extern void init_idtab(void);
+extern void ROOT(void);
+extern void SetOption_SUBDIR(const char *v);
+extern void SetOption_ALERT(void);
+extern void DefSourceName(char *str);
 
-main (argc, argv)
-   int argc;
-   char ** argv;
+static void scanargs(int argc, char ** argv);
+
+int main (int argc, char ** argv)
 {
    
    scanargs (argc, argv);
@@ -136,9 +143,7 @@ const char *MapFile(const char *p_input)
 
 /*----------------------------------------------------------------------------*/
 
-static scanargs (argc, argv)
-int argc;
-char ** argv;
+static void scanargs (int argc, char ** argv)
 {
     int i;
     int source_defined = 0;

@@ -1981,10 +1981,11 @@ static bool MCDeployToMacOSXFat(const MCDeployParameters& p_params, bool p_embed
 // is either PPC or x86, and that the executable loads Cocoa.
 static bool MCDeployValidateMacEngine(const MCDeployParameters& p_params, mach_header& p_header, load_command **p_commands)
 {
-	// Check the CPU type is PowerPC or X86
+	// Check the CPU type is PowerPC, X86, or ARM64
 	if (p_header . cputype != CPU_TYPE_POWERPC &&
 		p_header . cputype != CPU_TYPE_X86 &&
-        p_header . cputype != CPU_TYPE_X86_64)
+        p_header . cputype != CPU_TYPE_X86_64 &&
+        p_header . cputype != CPU_TYPE_ARM64)
 		return MCDeployThrow(kMCDeployErrorMacOSXBadCpuType);
 
 	// Check that Cocoa is one of the libraries linked to

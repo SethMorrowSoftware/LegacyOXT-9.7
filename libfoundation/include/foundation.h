@@ -185,6 +185,12 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 #define __X86_64__ 1
 #define __LP64__ 1
 #define __MEDIUM__ 1
+#elif defined(__arm64__) || defined(__aarch64__)
+#define __64_BIT__ 1
+#define __LITTLE_ENDIAN__ 1
+#define __ARM64__ 1
+#define __LP64__ 1
+#define __MEDIUM__ 1
 #endif
 
 // Native char set

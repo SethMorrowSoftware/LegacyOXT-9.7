@@ -13,6 +13,9 @@ typedef struct {long attr[2];} yyATTRIBUTES;
 #define YYSTYPE yyATTRIBUTES
 extern YYSTYPE yylval;
 
+/* Function declarations */
+extern void Told(void);
+
 #define MODULE 257
 #define EXPORTTOKEN 258
 #define IMPORTTOKEN 259
