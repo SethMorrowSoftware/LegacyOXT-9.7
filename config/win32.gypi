@@ -151,6 +151,11 @@
 		
 		'defines':
 		[
+			# The Windows SDK's min/max macros leak out of windows.h and collide
+			# with C++ identifiers used throughout the engine and third-party
+			# headers. Define this for every Windows target, including sources
+			# which include windows.h directly rather than through w32prefix.h.
+			'NOMINMAX',
 			'_CRT_NONSTDC_NO_DEPRECATE',
 			'_CRT_SECURE_NO_DEPRECATE',
 			'_CRT_DISABLE_PERFCRIT_LOCKS',

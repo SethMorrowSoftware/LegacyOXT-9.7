@@ -14,7 +14,15 @@ for more details.
 You should have received a copy of the GNU General Public License
 along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+
+// Keep this prefix header safe when it is used outside the generated GYP
+// projects, where config/win32.gypi normally supplies NOMINMAX globally.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 
 #include <windows.h>
 
