@@ -156,6 +156,11 @@
 			# headers. Define this for every Windows target, including sources
 			# which include windows.h directly rather than through w32prefix.h.
 			'NOMINMAX',
+			# Apply the prefix-header policy to every Windows target. Many externals
+			# include windows.h directly and never see engine/src/w32prefix.h.
+			'WIN32_LEAN_AND_MEAN',
+			'_CRT_SECURE_NO_WARNINGS',
+			'_WINSOCK_DEPRECATED_NO_WARNINGS',
 			'_CRT_NONSTDC_NO_DEPRECATE',
 			'_CRT_SECURE_NO_DEPRECATE',
 			'_CRT_DISABLE_PERFCRIT_LOCKS',

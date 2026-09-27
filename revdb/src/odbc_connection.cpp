@@ -26,10 +26,6 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 #pragma optimize("", off)
 #endif
 
-#if not defined(min)
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#endif
-
 char DBConnection_ODBC::errmsg[512];
 typedef unsigned short uint2;
 
@@ -480,7 +476,9 @@ bool DBConnection_ODBC::handleDataAtExecutionParameters(SQLHSTMT p_statement)
 		do 
 		{
 			int t_length;
-			t_length = min(t_block_size, t_end - t_current_position);
+			unsigned int t_remaining;
+			t_remaining = (unsigned int)(t_end - t_current_position);
+			t_length = t_remaining < t_block_size ? (int)t_remaining : (int)t_block_size;
 			t_put_result = SQLPutData(p_statement, (SQLPOINTER)t_current_position, t_length);
 			t_current_position = t_current_position + t_block_size;
 
