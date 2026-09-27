@@ -157,7 +157,7 @@ __MCSFileGetContents (MCStringRef p_native_path,
 	}
 
 	/* ---------- 3) Allocate a sufficiently-large buffer */
-	byte *t_buffer = NULL;
+	byte_t *t_buffer = NULL;
 
 	/* Check that the file isn't too large (i.e., size > 2^31 on
 	 * 32-bit systems) */

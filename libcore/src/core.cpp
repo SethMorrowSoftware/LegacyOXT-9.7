@@ -42,6 +42,7 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 
 #if defined(_WINDOWS) || defined(TARGET_SUBPLATFORM_WINDOWS) || defined(_WINDOWS_SERVER)
 #include <windows.h>
+#include <oleauto.h>
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -21,6 +21,7 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 
 #if defined(__WINDOWS__)
 #	include <windows.h>
+#	include <shellapi.h>
 #endif
 
 /* ---------------------------------------------------------------- */

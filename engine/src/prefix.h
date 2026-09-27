@@ -17,10 +17,13 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 #ifndef __PREFIX__
 #define __PREFIX__
 
-#include "globdefs.h"
-
 #if defined(_WIN32)
+// Include the Windows SDK before globdefs.h pulls in the engine's legacy
+// typedef and macro surface. Otherwise those macros can rewrite declarations
+// inside winnt.h before its include guard has been established.
 #  include "w32prefix.h"
 #endif
+
+#include "globdefs.h"
 
 #endif
