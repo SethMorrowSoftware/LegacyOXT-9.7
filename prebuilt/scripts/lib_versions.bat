@@ -8,4 +8,7 @@ FOR %%L in (Thirdparty OpenSSL ICU CEF Curl CEFChromium) DO (
 	)
 )
 
-FOR /F "tokens=*" %%x IN ('git -C ../thirdparty/ log -n 1 "--format=%%H"') DO SET Thirdparty_VERSION=%%x
+REM # Thirdparty_VERSION comes from versions\thirdparty like the others. It used
+REM # to be the commit of the thirdparty git submodule; thirdparty\ is now vendored
+REM # into this repository, so the version is pinned to the livecode-thirdparty
+REM # commit that the published Thirdparty prebuilts were built from.

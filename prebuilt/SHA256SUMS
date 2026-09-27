@@ -1,0 +1,10 @@
+d0ffbd0c1709405742acacd15a9f2fcbbd164d840d698f397171ecd4da8006e8  CEF-74.1.19-x86_64-win32-v141_static_debug-gb62bacf.tar.bz2
+7d7a8cf444c5cb2f72f256293b918b761c85bbda2edd2624b25cf08e5544878e  CEF-74.1.19-x86_64-win32-v141_static_release-gb62bacf.tar.bz2
+fe9ddb49a727a238fdf0c5e79071ae75de60956022039db94295fb53231b558a  Curl-7.51.0-x86_64-win32-v141_static_debug-PIC.tar.bz2
+ff4a74d451580b86d5148e31f249a2d4d3d9f8d300ffc8f7bcfa431ec0134ae0  Curl-7.51.0-x86_64-win32-v141_static_release-PIC.tar.bz2
+5c6524eb1b0a58d2924bf31c1e49689b3a5ea8dc7cbac86df8a2cb7de65ea1c8  ICU-58.2-x86_64-win32-v141_static_debug-1-PIC.tar.bz2
+938de68dda56ba3fae8235e6de14d532ab19cf3901b33a2426ced9efacbb4e52  ICU-58.2-x86_64-win32-v141_static_release-1-PIC.tar.bz2
+9079ce2d74d1c158242fb8aecd6fd7409abe72db631cbcb35ad4c5f2c398d5f8  OpenSSL-1.1.1g-x86_64-win32-v141_static_debug-PIC.tar.bz2
+ade606633587b8fe90b14d43300bcc530d46b645d8b4b575c75fcb5ea3a0409e  OpenSSL-1.1.1g-x86_64-win32-v141_static_release-PIC.tar.bz2
+3ae24fad3c56bbff2c97e357279b190fe46ac58fae63860cc5b9da6615077bab  Thirdparty-e5e050573c226f60acfbb9107c2b4aea853b0cbe-x86_64-win32-v141_static_debug-PIC.tar.bz2
+e4fb8f2166c23b43155244231445898b1a718b0bbe6c1f19b89087c03b12e1e8  Thirdparty-e5e050573c226f60acfbb9107c2b4aea853b0cbe-x86_64-win32-v141_static_release-PIC.tar.bz2

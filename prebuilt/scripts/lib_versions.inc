@@ -21,10 +21,12 @@ readVersion Curl
 readVersion CEF
 readVersion CEFChromium
 
+# The Thirdparty version used to be the commit of the thirdparty git submodule.
+# thirdparty/ is now vendored into this repository, so the version is pinned in
+# versions/thirdparty instead: it is the livecode-thirdparty commit that the
+# published Thirdparty prebuilts were built from. Change it when publishing a
+# new Thirdparty prebuilt.
 readVersion Thirdparty
-
-# extract hash from start of submodule status
-Thirdparty_VERSION=$(expr "$(git submodule status | grep 'thirdparty' )" : '[^0-9a-z]*\([0-9a-z]*\)')
 
 # Libraries used on all platforms
 Thirdparty_LIBS_CORE="libffi libpng libz libgif libjpeg libpcre libskia"
