@@ -467,7 +467,6 @@
 			'dependencies':
 			[
 				'../libexternal/libexternal.gyp:libExternal',
-				'../prebuilt/thirdparty.gyp:thirdparty_prebuilt_sqlite',
 			],
 			
 			'include_dirs':
@@ -506,6 +505,25 @@
 			
 			'conditions':
 			[
+				[
+					# On Windows, build SQLite from the vendored source in
+					# thirdparty/libsqlite. The libsqlite.lib in the Windows
+					# Thirdparty prebuilt package is an older SQLite (3.34.0)
+					# than the headers in thirdparty/libsqlite/include.
+					'OS == "win"',
+					{
+						'dependencies':
+						[
+							'../thirdparty/libsqlite/libsqlite.gyp:libsqlite',
+						],
+					},
+					{
+						'dependencies':
+						[
+							'../prebuilt/thirdparty.gyp:thirdparty_prebuilt_sqlite',
+						],
+					},
+				],
 				[
 					'OS != "win"',
 					{
@@ -574,7 +592,6 @@
 			'dependencies':
 			[
 				'../libexternal/libexternal.gyp:libExternal',
-				'../prebuilt/thirdparty.gyp:thirdparty_prebuilt_sqlite',
 			],
 			
 			'include_dirs':
@@ -614,6 +631,22 @@
 			
 			'conditions':
 			[
+				[
+					# See dbsqlite: on Windows, use the vendored SQLite source.
+					'OS == "win"',
+					{
+						'dependencies':
+						[
+							'../thirdparty/libsqlite/libsqlite.gyp:libsqlite',
+						],
+					},
+					{
+						'dependencies':
+						[
+							'../prebuilt/thirdparty.gyp:thirdparty_prebuilt_sqlite',
+						],
+					},
+				],
 				[
 					'OS == "linux" or OS == "android"',
 					{

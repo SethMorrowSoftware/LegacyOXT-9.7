@@ -47,12 +47,14 @@ util/perfect/perfect.linux-*
 # it's better to unpack these files and commit the raw source
 # git has its own built in compression methods
 *.7z
+*.bz2
 *.dmg
 *.gz
 *.iso
 *.jar
 *.rar
 *.tar
+*.xz
 *.zip
 
 # Logs and databases #
@@ -84,6 +86,8 @@ Thumbs.db
 *.xcworkspacedata
 xcuserdata/
 *.vcproj.*.user
+*.vcxproj.user
+.vs/
 *.ncb
 *.suo
 *.mode1v3
@@ -137,3 +141,11 @@ _mlc
 LiveCodeNotes-*
 LiveCodeUpdates-*
 LiveCodeUserGuide-*
+
+# Release packages (tools/ci/package-windows.ps1) #
+###################################################
+/dist/
+
+# Python 3 bytecode #
+#####################
+__pycache__/
