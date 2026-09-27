@@ -15,6 +15,7 @@ You should have received a copy of the GNU General Public License
 along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 
 #ifdef WIN32
+#include <winsock2.h>
 #include <windows.h>
 #endif
 

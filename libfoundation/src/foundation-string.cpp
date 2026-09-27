@@ -31,6 +31,7 @@ along with LiveCode.  If not see <http://www.gnu.org/licenses/>.  */
 
 #ifdef __WINDOWS__
 #include <Windows.h>
+#include <oleauto.h>
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
