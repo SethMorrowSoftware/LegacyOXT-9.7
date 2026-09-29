@@ -13,6 +13,21 @@ function readVersion {
 		local BUILDREVISION=$(cat "${script_dir}/../versions/${LIBNAME_LC}_buildrevision")
 		eval ${LIBNAME}_BUILDREVISION='"${BUILDREVISION}"'
 	fi
+
+	# Per-platform version: versions/<lib>_<platform> (e.g. openssl_win32)
+	# sets <Lib>_VERSION_<platform>, which fetch-libraries.sh uses for that
+	# platform instead of the common version. It lets one platform keep using
+	# published prebuilts while the others move to a newer release.
+	local PLATFORM_FILE
+	for PLATFORM_FILE in "${script_dir}/../versions/${LIBNAME_LC}"_* ; do
+		local SUFFIX="${PLATFORM_FILE##*/${LIBNAME_LC}_}"
+		case "${SUFFIX}" in
+			win32|linux|mac|ios|android|emscripten)
+				local PLATFORM_VERSION=$(cat "${PLATFORM_FILE}")
+				eval ${LIBNAME}_VERSION_${SUFFIX}='"${PLATFORM_VERSION}"'
+				;;
+		esac
+	done
 }
 
 readVersion OpenSSL

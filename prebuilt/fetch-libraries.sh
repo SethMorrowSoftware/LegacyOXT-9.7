@@ -293,7 +293,8 @@ function fetchLibrary {
 	local ARCH=$3
 	local SUBPLATFORM=$4
 
-	eval "local VERSION=\${${LIB}_VERSION}"
+	# A per-platform version (versions/<lib>_<platform>) wins over the common one
+	eval "local VERSION=\${${LIB}_VERSION_${PLATFORM}:-\${${LIB}_VERSION}}"
 	eval "local BUILDREVISION=\${${LIB}_BUILDREVISION}"
 
 	if [ -z "${VERSION}" ] ; then
