@@ -447,8 +447,13 @@
     */
 #  include <float.h>
 
-#  if (defined(__MWERKS__) && defined(macintosh)) || defined(applec) || \
-    defined(THINK_C) || defined(__SC__) || defined(TARGET_OS_MAC)
+   /* OXT-Beyond: <fp.h> is a classic Mac OS header. Current macOS SDKs
+    * define TARGET_OS_MAC but no longer have <fp.h>, and their <math.h>
+    * uses other include guards, so exclude macOS and iOS (__APPLE__).
+    */
+#  if ((defined(__MWERKS__) && defined(macintosh)) || defined(applec) || \
+    defined(THINK_C) || defined(__SC__) || defined(TARGET_OS_MAC)) && \
+    !defined(__APPLE__)
    /* We need to check that <math.h> hasn't already been included earlier
     * as it seems it doesn't agree with <fp.h>, yet we should really use
     * <fp.h> if possible.
