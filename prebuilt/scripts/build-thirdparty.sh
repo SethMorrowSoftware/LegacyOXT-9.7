@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Stop at the first failing configure, build or copy
+set -e
+
 source "${BASEDIR}/scripts/platform.inc"
 source "${BASEDIR}/scripts/lib_versions.inc"
 
