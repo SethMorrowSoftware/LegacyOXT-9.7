@@ -41,6 +41,9 @@
 		'ALWAYS_SEARCH_USER_PATHS': 'NO',
 		'MACOSX_DEPLOYMENT_TARGET': '<(mac_deployment_target)',
 		'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',
+		# OXT-Beyond: no type-based alias optimisation, as with MSVC on
+		# Windows and -fno-strict-aliasing on Linux (config/linux-settings.gypi)
+		'GCC_STRICT_ALIASING': 'NO',
 		'COPY_PHASE_STRIP': 'NO',
 		'STRIP_INSTALLED_PRODUCT': 'NO',
 		'CLANG_LINK_OBJC_RUNTIME': 'NO',
