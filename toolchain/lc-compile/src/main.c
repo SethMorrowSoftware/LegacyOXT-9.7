@@ -298,11 +298,11 @@ extern void InitializeFoundation(void);
 static int lc_compile_main(int argc, char *argv[]);
 
 #if !defined(_WIN32)
-/* The parser recurses deeply. Windows links lc-compile with a 64 MB stack
+/* The generated compiler recurses once per definition and statement.
+   Windows links lc-compile with a 64 MB stack for that reason
    (StackReserveSize in lc-compile-bootstrap.gyp); elsewhere the main thread
-   gets the default (usually 8 MB), and the compiler crashed on Linux arm64,
-   whose stack frames are larger. So run the compiler on a thread with a
-   64 MB stack there too. */
+   gets the default, usually 8 MB. Run the compiler on a thread with the
+   same 64 MB stack there, so large modules compile on every platform. */
 struct lc_compile_args
 {
     int argc;
