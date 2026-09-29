@@ -1425,7 +1425,10 @@
 					},
 				],
 				[
-					'toolset_os == "linux"',
+					# (Upstream also gives x86 Linux the Darwin headers, first
+					# in the list; they do not describe arm64, which uses only
+					# the include_linux/arm64 headers below)
+					'toolset_os == "linux" and toolset_arch != "arm64"',
 					{
 						'platform_include_dirs':
 						[
