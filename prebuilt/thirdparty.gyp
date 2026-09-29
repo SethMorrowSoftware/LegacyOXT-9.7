@@ -1407,11 +1407,22 @@
 			'conditions':
 			[
 				[
-					'toolset_os == "mac"',
+					'toolset_os == "mac" and toolset_arch != "arm64"',
 					{
 						'platform_include_dirs':
 						[
 							'<@(libffi_public_headers_darwin_osx_dir)',
+						],
+					},
+				],
+				[
+					# Apple Silicon links the newer libffi in git_master (see
+					# thirdparty/libffi/libffi.gyp), so use its headers
+					'toolset_os == "mac" and toolset_arch == "arm64"',
+					{
+						'platform_include_dirs':
+						[
+							'<@(libffi_public_headers_darwin_ios_dir)',
 						],
 					},
 				],
