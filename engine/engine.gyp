@@ -333,6 +333,8 @@
 					{
 						'ldflags':
 						[
+							# MCDeployToLinuxReadHeader() rejects PIE (ET_DYN) engines
+							'-no-pie',
 							'-Wl,-T,$(abs_srcdir)/engine/linux.link',
 						],
 					},
@@ -645,6 +647,7 @@
 					{
 						'ldflags':
 						[
+							'-no-pie',
 							'-T', '$(abs_srcdir)/engine/linux.link',
 						],
 					},

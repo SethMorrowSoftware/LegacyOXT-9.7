@@ -51,6 +51,11 @@ case "${PLATFORM}" in
 		;;
 esac
 
+# Optional override, e.g. PREBUILT_BUILD_LIBS="openssl curl icu cef"
+if [ -n "${PREBUILT_BUILD_LIBS}" ] ; then
+	PREBUILT_LIBS="${PREBUILT_BUILD_LIBS//,/ }"
+fi
+
 # Build all of the libraries that the target platform depends on
 for t_lib in ${PREBUILT_LIBS} ; do
 	${BASEDIR}/scripts/build-${t_lib}.sh

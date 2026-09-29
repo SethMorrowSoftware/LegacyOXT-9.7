@@ -93,7 +93,7 @@ endif
 # Linux rules
 ################################################################
 
-LINUX_ARCHS = x86_64 x86 armv6hf armv7
+LINUX_ARCHS = x86_64 x86 armv6hf armv7 arm64
 
 config-linux-%:
 ifneq ($(TRAVIS),undefined)

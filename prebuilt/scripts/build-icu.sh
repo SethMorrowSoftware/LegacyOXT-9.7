@@ -33,7 +33,7 @@ esac
 if [ ! -d "$ICU_SRC" ] ; then
 	if [ ! -e "$ICU_TGZ" ] ; then
 		echo "Fetching ICU source"
-		fetchUrl "https://downloads.sourceforge.net/project/icu/ICU4C/${ICU_VERSION}/icu4c-${ICU_VERSION_ALT}-src.tgz" "${ICU_TGZ}"
+		fetchUrl "https://github.com/unicode-org/icu/releases/download/release-${ICU_VERSION//./-}/icu4c-${ICU_VERSION_ALT}-src.tgz" "${ICU_TGZ}"
 		if [ $? != 0 ] ; then
 			echo "    failed"
 			if [ -e "${ICU_TGZ}" ] ; then 
@@ -46,6 +46,9 @@ if [ ! -d "$ICU_SRC" ] ; then
 	echo "Unpacking ICU source"
 	tar -xf "${ICU_TGZ}"
 	mv icu "${ICU_SRC}"
+
+	# glibc 2.26 removed <xlocale.h>; ICU 58 still includes it
+	sed -i.bak -e 's/#   include <xlocale.h>/#   include <locale.h>/' "${ICU_SRC}/source/i18n/digitlst.cpp"
 fi
 
 ICU_LIBS="data i18n io le lx tu uc"
@@ -73,6 +76,8 @@ function buildICU {
 				CONFIG_TYPE+=" --host=arm-rpi-linux-gnueabihf --with-cross-build=${HOST_ICU_DIR}"
 			elif [ "${ARCH}" == "armv7" ] ; then
 				CONFIG_TYPE+=" --host=arm-rpi2-linux-gnueabihf --with-cross-build=${HOST_ICU_DIR}"
+			elif [ "${ARCH}" == "arm64" -a "${HOST_ARCH}" == "arm64" ] ; then
+				CONFIG_TYPE+=" --with-library-bits=64"
 			else
 				CONFIG_TYPE+=" --with-library-bits=32"
 			fi

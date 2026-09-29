@@ -11,7 +11,8 @@ CURL_CONFIG="--disable-debug \
             --disable-manual \
             --enable-shared=no \
             --disable-sspi --disable-crypto-auth --disable-cookies \
-            --without-gnutls --without-polarssl --without-nss --without-libssh2 --without-librtmp --without-libidn"
+            --without-gnutls --without-polarssl --without-nss --without-libssh2 --without-librtmp --without-libidn \
+            --with-pic --without-nghttp2 --without-libpsl --without-brotli --without-zstd"
 
 # Grab the source for the library
 CURL_TGZ="curl-${Curl_VERSION}.tar.gz"
@@ -21,7 +22,7 @@ cd "${BUILDDIR}"
 if [ ! -d "$CURL_SRC" ] ; then
 	if [ ! -e "$CURL_TGZ" ] ; then
 		echo "Fetching Curl source"
-		fetchUrl "https://curl.haxx.se/download/curl-${Curl_VERSION}.tar.gz" "${CURL_TGZ}"
+		fetchUrl "https://curl.se/download/curl-${Curl_VERSION}.tar.gz" "${CURL_TGZ}"
 		if [ $? != 0 ] ; then
 			echo "    failed"
 			if [ -e "${CURL_TGZ}" ] ; then 

@@ -22,7 +22,7 @@ ARCHS_android=( armv7 arm64 x86 x86_64 )
 ARCHS_mac=( Universal )
 ARCHS_ios=( Universal )
 ARCHS_win32=( x86 x86_64 )
-ARCHS_linux=( i386 x86_64 )
+ARCHS_linux=( i386 x86_64 arm64 )
 ARCHS_emscripten=( js )
 LIBS_android=( Thirdparty OpenSSL ICU )
 LIBS_mac=( Thirdparty OpenSSL ICU )
@@ -38,6 +38,9 @@ SUBPLATFORMS_android=(ndk16r15)
 # Override the Windows library and subplatform lists (space or comma separated)
 if [ -n "${PREBUILT_WIN32_LIBS}" ] ; then
 	read -r -a LIBS_win32 <<< "${PREBUILT_WIN32_LIBS//,/ }"
+fi
+if [ -n "${PREBUILT_LINUX_LIBS}" ] ; then
+	read -r -a LIBS_linux <<< "${PREBUILT_LINUX_LIBS//,/ }"
 fi
 if [ -n "${PREBUILT_WIN32_SUBPLATFORMS}" ] ; then
 	read -r -a SUBPLATFORMS_win32 <<< "${PREBUILT_WIN32_SUBPLATFORMS//,/ }"
@@ -407,6 +410,10 @@ for PLATFORM in ${SELECTED_PLATFORMS} ; do
 
 	for ARCH in ${SELECTED_ARCHS} ; do
 		for LIB in "${LIBS[@]}" ; do
+			# CEF only exists for x86 Linux (see prebuilt/libcef.gyp)
+			if [ "${PLATFORM}" = "linux" ] && [ "${LIB}" = "CEF" ] && [ "${ARCH}" != "x86_64" ] && [ "${ARCH}" != "i386" ] ; then
+				continue
+			fi
 			if [ ! -z "${SUBPLATFORMS}" ] ; then
 				for SUBPLATFORM in "${SUBPLATFORMS[@]}" ; do
 					fetchLibrary "${LIB}" "${PLATFORM}" "${ARCH}" "${SUBPLATFORM}"
