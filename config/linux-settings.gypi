@@ -95,6 +95,23 @@
 		'-fstrict-aliasing',
 		'-fvisibility=hidden',
 	],
+
+	'conditions':
+	[
+		[
+			# Plain char is unsigned on Linux arm64 but signed on x86 and on
+			# Apple arm64, which this code was written and tested on. Make it
+			# signed so the engine and tools behave the same on every
+			# platform.
+			'OS == "linux" and target_arch == "arm64"',
+			{
+				'cflags':
+				[
+					'-fsigned-char',
+				],
+			},
+		],
+	],
 	
 	'cflags_c':
 	[
