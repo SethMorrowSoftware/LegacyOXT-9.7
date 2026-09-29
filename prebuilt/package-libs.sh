@@ -133,7 +133,7 @@ function doPackage {
 				Thirdparty_FILES+="${LIBPATH}/${LIB}_*.a "
 			fi
 		done
-	else
+	elif [ -f "${LIBPATH}/libz.lib" ] ; then
 		for LIB in ${!Thirdparty_LIBS_I} ; do
 			Thirdparty_FILES+="${LIBPATH}/${LIB}.lib "
 			if [ "${LIB}" == "libskia" ]; then
