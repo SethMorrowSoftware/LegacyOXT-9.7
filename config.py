@@ -278,6 +278,10 @@ def host_platform(opts):
 def guess_xcode_arch(target_sdk):
     sdk, ver = re.match('^([^\d]*)(\d*)', target_sdk).groups()
     if sdk == 'macosx':
+        # Build for the machine's own architecture (Apple Silicon or Intel)
+        machine = platform.machine()
+        if machine in ('arm64', 'aarch64'):
+            return 'arm64'
         return 'x86_64'
     if sdk == 'iphoneos':
         if int(ver) < 8:
@@ -501,7 +505,7 @@ def validate_xcode_sdks(opts):
     if opts['XCODE_TARGET_SDK'] is None:
         validate_os(opts)
         if opts['OS'] == 'mac':
-            opts['XCODE_TARGET_SDK'] = 'macosx10.9'
+            opts['XCODE_TARGET_SDK'] = 'macosx'
         elif opts['OS'] == 'ios':
             opts['XCODE_TARGET_SDK'] = 'iphoneos'
 

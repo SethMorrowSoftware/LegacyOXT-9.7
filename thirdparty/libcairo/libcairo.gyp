@@ -501,8 +501,8 @@
 								},
 							],
 							[
-								# SSE2 optimisations are restricted to OSX or x86_64
-								'OS != "mac"',
+								# SSE2 optimisations are restricted to x86_64 macOS
+								'OS != "mac" or target_arch == "arm64"',
 								{
 									'sources/':
 									[

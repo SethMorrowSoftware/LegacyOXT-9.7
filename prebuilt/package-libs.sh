@@ -178,8 +178,9 @@ fi
 doPackage "${PLATFORM}" "${ARCH}" "${SUBPLATFORM}"
 
 # Shared headers: publish them from linux-x86_64 only, but package them on
-# every Linux architecture so that native builds can use them locally
-if [ "${PLATFORM}" = "linux" ] ; then
+# every Linux architecture and on macOS so that native builds can use them
+# locally
+if [ "${PLATFORM}" = "linux" ] || [ "${PLATFORM}" = "mac" ] ; then
 	# Package up the includes
 	OPENSSL_HDR_NAME="OpenSSL-${OpenSSL_VERSION}-All-Universal-Headers"
 	if [ ! -z "${OpenSSL_BUILDREVISION}" ] ; then

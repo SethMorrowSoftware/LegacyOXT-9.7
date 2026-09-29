@@ -47,8 +47,14 @@ if [ ! -d "$ICU_SRC" ] ; then
 	tar -xf "${ICU_TGZ}"
 	mv icu "${ICU_SRC}"
 
-	# glibc 2.26 removed <xlocale.h>; ICU 58 still includes it
-	sed -i.bak -e 's/#   include <xlocale.h>/#   include <locale.h>/' "${ICU_SRC}/source/i18n/digitlst.cpp"
+	# glibc 2.26 removed <xlocale.h>; ICU 58 still includes it. (macOS
+	# still declares strtod_l in <xlocale.h>, so only change it on Linux.)
+	if [ "$(uname -s)" = "Linux" ] ; then
+		sed -i.bak -e 's/#   include <xlocale.h>/#   include <locale.h>/' "${ICU_SRC}/source/i18n/digitlst.cpp"
+	fi
+
+	# C++17 removed the register storage class, which ICU 58 still uses
+	sed -i.bak -e 's/register int32_t nulLen = 0;/int32_t nulLen = 0;/' "${ICU_SRC}/source/common/ustr_wcs.cpp"
 fi
 
 ICU_LIBS="data i18n io le lx tu uc"

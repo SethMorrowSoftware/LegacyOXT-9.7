@@ -37,7 +37,10 @@ fi
 # Which platform are we actually targeting?
 case "${PLATFORM}" in
 	mac)
-		export UNIVERSAL_ARCHS="x86_64"
+		# The slices to build into the "universal" libraries: by default only
+		# the build machine's own architecture (CI builds each architecture
+		# on its own runner and joins the finished engines with lipo)
+		export UNIVERSAL_ARCHS="${PREBUILT_MAC_ARCHS:-$(uname -m)}"
 		;;
 	linux)
 		export ARCHS="i386 x86_64"
@@ -92,14 +95,17 @@ function setCCForTarget {
 			CXXFLAGS="/MT"
 			;;
 		mac)
-			# OSX options
-			PLATFORM_DEVELOPER="${XCODE_DEVELOPER}/Platforms/MacOSX.platform/Developer"
-			SDK="MacOSX10.9.sdk"
-			OSXGCCVERSION=4.2
-			OSXMIN="10.6"
+			# OSX options: the clang and macOS SDK of the selected Xcode. The
+			# oldest supported macOS matches config/mac.gypi.
+			local MAC_SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+			if [ "${ARCH}" == "arm64" ] ; then
+				OSXMIN="11.0"
+			else
+				OSXMIN="10.13"
+			fi
 
-			CC_BASE="${XCODE_DEVELOPER}/usr/bin/gcc --sysroot=${PLATFORM_DEVELOPER}/SDKs/${SDK} -isysroot ${PLATFORM_DEVELOPER}/SDKs/${SDK} -mmacosx-version-min=${OSXMIN}"
-			CXX_BASE="${XCODE_DEVELOPER}/usr/bin/g++ --sysroot=${PLATFORM_DEVELOPER}/SDKs/${SDK} -isysroot ${PLATFORM_DEVELOPER}/SDKs/${SDK} -mmacosx-version-min=${OSXMIN}"
+			CC_BASE="$(xcrun --sdk macosx --find clang) -isysroot ${MAC_SDK_PATH} -mmacosx-version-min=${OSXMIN}"
+			CXX_BASE="$(xcrun --sdk macosx --find clang++) -isysroot ${MAC_SDK_PATH} -mmacosx-version-min=${OSXMIN}"
 			CC="${CC_BASE} -arch ${ARCH}"
 			CXX="${CXX_BASE} -arch ${ARCH}"
 			;;

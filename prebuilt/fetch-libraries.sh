@@ -9,6 +9,8 @@
 #                          from there instead of being downloaded.
 #   PREBUILT_CACHE_DIR     Folder to download into instead of prebuilt/fetched.
 #   PREBUILT_WIN32_LIBS    Windows libraries to fetch, e.g. "OpenSSL Curl".
+#   PREBUILT_LINUX_LIBS, PREBUILT_MAC_LIBS
+#                          The same for Linux and macOS.
 #   PREBUILT_WIN32_SUBPLATFORMS
 #                          Windows subplatforms to fetch, e.g.
 #                          "v141_static_release" for a Release-only build.
@@ -41,6 +43,9 @@ if [ -n "${PREBUILT_WIN32_LIBS}" ] ; then
 fi
 if [ -n "${PREBUILT_LINUX_LIBS}" ] ; then
 	read -r -a LIBS_linux <<< "${PREBUILT_LINUX_LIBS//,/ }"
+fi
+if [ -n "${PREBUILT_MAC_LIBS}" ] ; then
+	read -r -a LIBS_mac <<< "${PREBUILT_MAC_LIBS//,/ }"
 fi
 if [ -n "${PREBUILT_WIN32_SUBPLATFORMS}" ] ; then
 	read -r -a SUBPLATFORMS_win32 <<< "${PREBUILT_WIN32_SUBPLATFORMS//,/ }"

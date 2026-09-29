@@ -66,6 +66,22 @@
 			'src/x86/win32.S',
 		],
 		
+		# macOS on Apple Silicon: the newer libffi in git_master, which uses a
+		# trampoline table for closures (arm64 macOS does not allow memory that
+		# is writable and executable at once)
+		'libffi_mac_arm64_source_files':
+		[
+			'git_master/darwin_ios/src/aarch64/ffi_arm64.c',
+			'git_master/darwin_ios/src/aarch64/sysv_arm64.S',
+
+			'git_master/src/closures.c',
+			'git_master/src/debug.c',
+			'git_master/src/java_raw_api.c',
+			'git_master/src/prep_cif.c',
+			'git_master/src/raw_api.c',
+			'git_master/src/types.c',
+		],
+		
 		'libffi_ios_source_files':
 		[
 			'git_master/darwin_ios/src/aarch64/ffi_arm64.c',
@@ -200,7 +216,7 @@
 			'conditions':
 			[
 				[
-					'toolset_os == "mac"',
+					'toolset_os == "mac" and toolset_arch != "arm64"',
 					{
 						'platform_include_dirs':
 						[
@@ -211,6 +227,25 @@
 						[
 							'<@(libffi_mac_source_files)',
 							'<@(libffi_generic_sources)'
+						],
+					},
+				],
+				[
+					'toolset_os == "mac" and toolset_arch == "arm64"',
+					{
+						'platform_include_dirs':
+						[
+							'<@(libffi_public_headers_darwin_ios_dir)',
+						],
+						
+						'sources':
+						[
+							'<@(libffi_mac_arm64_source_files)',
+						],
+
+						'include_dirs':
+						[
+							'git_master/src',
 						],
 					},
 				],

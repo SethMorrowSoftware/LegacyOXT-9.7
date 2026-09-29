@@ -41,7 +41,7 @@ function buildOpenSSL {
 	# Each target type in OpenSSL is given a name
 	case "${PLATFORM}" in
 		mac)
-			if [ "${ARCH}" == "x86_64" -o "${ARCH}" == "ppc64" ] ; then
+			if [ "${ARCH}" == "x86_64" -o "${ARCH}" == "ppc64" -o "${ARCH}" == "arm64" ] ; then
 				SPEC="darwin64-${ARCH}-cc"
 			else
 				SPEC="darwin-${ARCH}-cc"
@@ -133,7 +133,23 @@ function buildOpenSSL {
 		cd "${OPENSSL_ARCH_SRC}"
 
 		# Customise the OpenSSL configuration to ensure variables are exported as functions
-		cat > Configurations/99-livecode.conf << EOF
+		if [ "${SPEC}" == "darwin64-arm64-cc" ] && ! grep -q '"darwin64-arm64-cc"' Configurations/10-main.conf ; then
+			# OpenSSL before 1.1.1i has no Apple Silicon target; this is the
+			# definition 1.1.1i added, plus EXPORT_VAR_AS_FN
+			cat > Configurations/99-livecode.conf << EOF
+my %targets = (
+"${CUSTOM_SPEC}" => {
+	inherit_from => [ "darwin-common", asm("aarch64_asm") ],
+	CFLAGS => add("-Wall"),
+	cflags => add("-arch arm64"),
+	lib_cppflags => add("-DL_ENDIAN"),
+	bn_ops => "SIXTY_FOUR_BIT_LONG EXPORT_VAR_AS_FN",
+	perlasm_scheme => "ios64",
+},
+);
+EOF
+		else
+			cat > Configurations/99-livecode.conf << EOF
 my %targets = (
 "${CUSTOM_SPEC}" => {
 	inherit_from => [ "${SPEC}" ],
@@ -141,6 +157,7 @@ my %targets = (
 },
 );
 EOF
+		fi
 
 		if [ $CONFIGURE_CC_FOR_TARGET != 0 ] ; then
 			setCCForTarget "${PLATFORM}" "${ARCH}" "${SUBPLATFORM}"
