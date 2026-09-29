@@ -304,6 +304,22 @@ static bool __append_definition_name(MCScriptModuleBuilderRef self, MCNameRef p_
     return true;
 }
 
+// OXT-Beyond: allocate a definition of type T into the module's definition
+// slot p_index. This file used to write the slot through a reference to a
+// different pointer type, MCMemoryNew((T *&)definitions[i]), and then read
+// it back as an MCScriptDefinition *. That is undefined behaviour under
+// strict aliasing, and GCC on arm64 duly read the slot back as nil, so
+// lc-compile crashed on Linux arm64. Allocating into a T * and storing it is
+// well defined.
+template<typename T> static bool __new_definition(MCScriptModuleBuilderRef self, uindex_t p_index)
+{
+    T *t_definition;
+    if (!MCMemoryNew(t_definition))
+        return false;
+    self -> module . definitions[p_index] = t_definition;
+    return true;
+}
+
 static void __assign_definition_name(MCScriptModuleBuilderRef self, uindex_t p_index, MCNameRef p_name)
 {
     MCValueRelease(self -> module . definition_names[p_index]);
@@ -525,7 +541,7 @@ void MCScriptAddImportToModuleWithIndex(MCScriptModuleBuilderRef self, uindex_t 
 {
     uindex_t t_imp_index;
     if (!__extend_array(self, self -> module . imported_definitions, self -> module . imported_definition_count, t_imp_index) ||
-        !MCMemoryNew((MCScriptExternalDefinition*&)self -> module . definitions[p_def_index]))
+        !__new_definition<MCScriptExternalDefinition>(self, p_def_index))
     {
         self -> valid = false;
         return;
@@ -690,7 +706,7 @@ void MCScriptAddTypeToModule(MCScriptModuleBuilderRef self, MCNameRef p_name, ui
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptTypeDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptTypeDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -712,7 +728,7 @@ void MCScriptAddConstantToModule(MCScriptModuleBuilderRef self, MCNameRef p_name
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptConstantDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptConstantDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -734,7 +750,7 @@ void MCScriptAddVariableToModule(MCScriptModuleBuilderRef self, MCNameRef p_name
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptVariableDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptVariableDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -756,7 +772,7 @@ void MCScriptAddForeignHandlerToModule(MCScriptModuleBuilderRef self, MCNameRef 
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptForeignHandlerDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptForeignHandlerDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -779,7 +795,7 @@ void MCScriptAddPropertyToModule(MCScriptModuleBuilderRef self, MCNameRef p_name
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptPropertyDefinition *&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptPropertyDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -804,7 +820,7 @@ void MCScriptAddEventToModule(MCScriptModuleBuilderRef self, MCNameRef p_name, u
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptEventDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptEventDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -1092,7 +1108,7 @@ void MCScriptBeginSyntaxInModule(MCScriptModuleBuilderRef self, MCNameRef p_name
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptSyntaxDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptSyntaxDefinition>(self, p_index))
     {
         self -> valid = false;
         return;
@@ -1273,7 +1289,7 @@ void MCScriptEndDefinitionGroupInModule(MCScriptModuleBuilderRef self, uindex_t&
     if (!self -> valid)
         return;
     
-    if (!MCMemoryNew((MCScriptDefinitionGroupDefinition *&)self -> module . definitions[t_index]))
+    if (!__new_definition<MCScriptDefinitionGroupDefinition>(self, t_index))
     {
         self -> valid = false;
         return;
@@ -1479,7 +1495,7 @@ void MCScriptBeginHandlerInModule(MCScriptModuleBuilderRef self, MCNameRef p_nam
     
     if (p_index >= self -> module . definition_count ||
         self -> module . definitions[p_index] != nil ||
-        !MCMemoryNew((MCScriptHandlerDefinition*&)self -> module . definitions[p_index]))
+        !__new_definition<MCScriptHandlerDefinition>(self, p_index))
     {
         self -> valid = false;
         return;

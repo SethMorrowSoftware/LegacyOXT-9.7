@@ -92,7 +92,11 @@
 	'cflags':
 	[
 		'-fPIC',
-		'-fstrict-aliasing',
+		# OXT-Beyond: this code was developed mostly with MSVC, which never
+		# optimises on type-based aliasing, and it still has type-punned
+		# pointer casts (one crashed lc-compile on Linux arm64). Give GCC
+		# the same memory semantics so the engine behaves as on Windows.
+		'-fno-strict-aliasing',
 		'-fvisibility=hidden',
 	],
 
