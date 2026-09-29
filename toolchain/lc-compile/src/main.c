@@ -18,6 +18,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#if !defined(_WIN32)
+#include <pthread.h>
+#endif
+
 #include <literal.h>
 #include <position.h>
 #include <report.h>
@@ -291,7 +295,63 @@ static void full_main(int argc, char *argv[])
 extern int yydebug;
 extern void InitializeFoundation(void);
 
+static int lc_compile_main(int argc, char *argv[]);
+
+#if !defined(_WIN32)
+/* The parser recurses deeply. Windows links lc-compile with a 64 MB stack
+   (StackReserveSize in lc-compile-bootstrap.gyp); elsewhere the main thread
+   gets the default (usually 8 MB), and the compiler crashed on Linux arm64,
+   whose stack frames are larger. So run the compiler on a thread with a
+   64 MB stack there too. */
+struct lc_compile_args
+{
+    int argc;
+    char **argv;
+    int result;
+};
+
+static void *lc_compile_thread(void *p_context)
+{
+    struct lc_compile_args *t_args;
+    t_args = (struct lc_compile_args *)p_context;
+    t_args -> result = lc_compile_main(t_args -> argc, t_args -> argv);
+    return NULL;
+}
+
 int main(int argc, char *argv[])
+{
+    struct lc_compile_args t_args;
+    pthread_attr_t t_attr;
+    pthread_t t_thread;
+    int t_started;
+
+    t_args . argc = argc;
+    t_args . argv = argv;
+    t_args . result = 1;
+
+    t_started = 0;
+    if (pthread_attr_init(&t_attr) == 0)
+    {
+        if (pthread_attr_setstacksize(&t_attr, 64 * 1024 * 1024) == 0 &&
+            pthread_create(&t_thread, &t_attr, lc_compile_thread, &t_args) == 0)
+            t_started = 1;
+        pthread_attr_destroy(&t_attr);
+    }
+
+    if (!t_started)
+        return lc_compile_main(argc, argv);
+
+    pthread_join(t_thread, NULL);
+    return t_args . result;
+}
+#else
+int main(int argc, char *argv[])
+{
+    return lc_compile_main(argc, argv);
+}
+#endif
+
+static int lc_compile_main(int argc, char *argv[])
 {
     //extern int yydebug;
 	int t_return_code;

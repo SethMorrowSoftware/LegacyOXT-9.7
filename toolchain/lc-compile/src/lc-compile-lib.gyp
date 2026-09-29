@@ -27,6 +27,24 @@
 			[
 					'<@(lc-compile_source_files)',
 			],
+
+			# main.c runs the compiler on a thread with a large stack
+			# (pthread_create is in libpthread before glibc 2.34)
+			'conditions':
+			[
+				[
+					'OS == "linux" or host_os == "linux"',
+					{
+						'link_settings':
+						{
+							'libraries':
+							[
+								'-lpthread',
+							],
+						},
+					},
+				],
+			],
 		},
 	],
 }
