@@ -247,13 +247,6 @@
 						[
 							'git_master/src',
 						],
-
-						# See fficonfig_arm64.h: current clang rejects the
-						# CFI directives in sysv_arm64.S
-						'defines':
-						[
-							'FFI_NO_CFI_DIRECTIVES',
-						],
 					},
 				],
 				[

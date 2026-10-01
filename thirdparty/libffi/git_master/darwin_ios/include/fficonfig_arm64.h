@@ -43,13 +43,7 @@
 #define HAVE_ALLOCA_H 1
 
 /* Define if your assembler supports .cfi_* directives. */
-/* OXT-Beyond: the macOS arm64 build defines FFI_NO_CFI_DIRECTIVES. Current
-   clang rejects the CFI in sysv_arm64.S ("invalid CFI advance_loc
-   expression", across the fixed-size jump tables), so that build leaves
-   the unwind directives out. */
-#if !defined(FFI_NO_CFI_DIRECTIVES)
 #define HAVE_AS_CFI_PSEUDO_OP 1
-#endif
 
 /* Define if your assembler supports .register. */
 /* #undef HAVE_AS_REGISTER_PSEUDO_OP */

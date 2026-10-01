@@ -77,8 +77,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
    x5 closure
 */
 
-	cfi_startproc
+/* OXT-Beyond: in a Mach-O object, the CFI of a function must not cross a
+   label that the linker sees (one that starts an atom), or clang stops with
+   "invalid CFI advance_loc expression". So cfi_startproc comes after the
+   function's label, and do_closure has the L prefix of Mach-O's local
+   labels (".L" is not one there). */
 CNAME(ffi_call_SYSV):
+	cfi_startproc
 	/* Use a stack frame allocated by our caller.  */
 	cfi_def_cfa(x1, 32);
 	stp	x29, x30, [x1]
@@ -246,8 +251,8 @@ CNAME(ffi_closure_SYSV_V):
 #endif
 
 	.align	4
-	cfi_startproc
 CNAME(ffi_closure_SYSV):
+	cfi_startproc
 	stp     x29, x30, [sp, #-ffi_closure_SYSV_FS]!
 	cfi_adjust_cfa_offset (ffi_closure_SYSV_FS)
 	cfi_rel_offset (x29, 0)
@@ -264,7 +269,7 @@ CNAME(ffi_closure_SYSV):
 	/* Load ffi_closure_inner arguments.  */
 	ldp	PTR_REG(0), PTR_REG(1), [x17, #FFI_TRAMPOLINE_CLOSURE_OFFSET]	/* load cif, fn */
 	ldr	PTR_REG(2), [x17, #FFI_TRAMPOLINE_CLOSURE_OFFSET+PTR_SIZE*2]	/* load user_data */
-.Ldo_closure:
+Ldo_closure:
 	add	x3, sp, #16				/* load context */
 	add	x4, sp, #ffi_closure_SYSV_FS		/* load stack */
 	add	x5, sp, #16+CALL_CONTEXT_SIZE		/* load rvalue */
@@ -405,8 +410,8 @@ CNAME(ffi_go_closure_SYSV_V):
 #endif
 
 	.align	4
-	cfi_startproc
 CNAME(ffi_go_closure_SYSV):
+	cfi_startproc
 	stp     x29, x30, [sp, #-ffi_closure_SYSV_FS]!
 	cfi_adjust_cfa_offset (ffi_closure_SYSV_FS)
 	cfi_rel_offset (x29, 0)
@@ -423,7 +428,7 @@ CNAME(ffi_go_closure_SYSV):
 	/* Load ffi_closure_inner arguments.  */
 	ldp	PTR_REG(0), PTR_REG(1), [x18, #PTR_SIZE]/* load cif, fn */
 	mov	x2, x18					/* load user_data */
-	b	.Ldo_closure
+	b	Ldo_closure
 	cfi_endproc
 
 	.globl	CNAME(ffi_go_closure_SYSV)
