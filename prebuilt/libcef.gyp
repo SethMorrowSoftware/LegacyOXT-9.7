@@ -132,7 +132,7 @@
 				],
 				
 				[
-				    'OS == "linux" and target_arch in ("x86", "x86_64")',
+				    'OS == "linux" and target_arch == "x86_64"',
                     {
                         'copies':
                         [

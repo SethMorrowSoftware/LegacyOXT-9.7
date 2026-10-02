@@ -415,9 +415,14 @@ for PLATFORM in ${SELECTED_PLATFORMS} ; do
 	eval "SUBPLATFORMS=( \${SUBPLATFORMS_${PLATFORM}[@]} )"
 
 	for ARCH in ${SELECTED_ARCHS} ; do
+		# The archives of Linux x86 are named i386 (package-libs.sh), while
+		# gyp asks for x86; their library folder is lib/linux/x86 either way
+		if [ "${PLATFORM}" = "linux" ] && [ "${ARCH}" = "x86" ] ; then
+			ARCH=i386
+		fi
 		for LIB in "${LIBS[@]}" ; do
-			# CEF only exists for x86 Linux (see prebuilt/libcef.gyp)
-			if [ "${PLATFORM}" = "linux" ] && [ "${LIB}" = "CEF" ] && [ "${ARCH}" != "x86_64" ] && [ "${ARCH}" != "i386" ] ; then
+			# CEF only exists for x86_64 Linux (see prebuilt/libcef.gyp)
+			if [ "${PLATFORM}" = "linux" ] && [ "${LIB}" = "CEF" ] && [ "${ARCH}" != "x86_64" ] ; then
 				continue
 			fi
 			if [ ! -z "${SUBPLATFORMS}" ] ; then

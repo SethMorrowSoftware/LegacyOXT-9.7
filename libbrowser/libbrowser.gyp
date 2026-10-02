@@ -64,7 +64,7 @@
 				## Exclusions
 				# Only use CEF on desktop platforms
 				[
-					'not (toolset_os == "win" or (toolset_os == "linux" and toolset_arch in ("x86", "x86_64")))',
+					'not (toolset_os == "win" or (toolset_os == "linux" and toolset_arch == "x86_64"))',
 					{
 						'sources!':
 						[
@@ -126,7 +126,7 @@
 				],
 
 				[
-					'toolset_os == "linux" and not toolset_arch in ("x86", "x86_64")',
+					'toolset_os == "linux" and not toolset_arch == "x86_64"',
 					{
 						'sources!':
 						[
@@ -353,7 +353,7 @@
                             ],
 
                             [
-                                'toolset_os == "linux" and not toolset_arch in ("x86", "x86_64")',
+                                'toolset_os == "linux" and not toolset_arch == "x86_64"',
                                 {
                                     'type': 'none',
                                 },
@@ -365,7 +365,7 @@
 				'conditions':
 				[
 					[
-						'OS == "win" or (OS == "linux" and target_arch in ("x86", "x86_64"))',
+						'OS == "win" or (OS == "linux" and target_arch == "x86_64")',
 						{
 							'variables':
 							{

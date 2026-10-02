@@ -24,7 +24,9 @@ extern bool MCCefBrowserFactoryCreate(MCBrowserFactoryRef &r_factory);
 // Overcome the tautological error if s_factory_list is a static pointer
 MCBrowserFactoryMap kMCBrowserFactoryMap[] =
 {
-#if defined __i386__ || defined __amd64__
+// OXT-Beyond: CEF on x86-64 only (libbrowser.gyp); CEF's 32-bit Linux
+// builds ended with CEF 101, and the x86 build has no browser
+#if defined __amd64__
     { "CEF", nil, MCCefBrowserFactoryCreate },
 #endif
     { nil, nil, nil },

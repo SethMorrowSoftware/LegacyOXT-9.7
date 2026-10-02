@@ -56,7 +56,7 @@
 				],
 				# CEF only supported on Windows & Linux
 				[
-					'not toolset_os in ("win", "linux") or (toolset_os == "linux" and not toolset_arch in ("x86", "x86_64"))',
+					'not toolset_os in ("win", "linux") or (toolset_os == "linux" and not toolset_arch == "x86_64")',
 					{
 						'sources!':
 						[
@@ -101,7 +101,7 @@
 					},
 				],
 				[
-					'toolset_os == "linux" and toolset_arch in ("x86", "x86_64")',
+					'toolset_os == "linux" and toolset_arch == "x86_64"',
 					{
                         'copies':
                         [
@@ -155,7 +155,7 @@
 						},
 					],
 					[
-						'OS == "linux" and target_arch in ("x86", "x86_64")',
+						'OS == "linux" and target_arch == "x86_64"',
 						{
 							'variables':
 							{
@@ -213,7 +213,7 @@
 						'target_conditions':
 						[
 							[
-								'not toolset_os in ("win", "linux") or (toolset_os == "linux" and not toolset_arch in ("x86", "x86_64"))',
+								'not toolset_os in ("win", "linux") or (toolset_os == "linux" and not toolset_arch == "x86_64")',
 								{
 									'type': 'none',
 								},
@@ -262,7 +262,7 @@
 							'conditions':
 							[
 								[
-									'OS == "win" or (OS == "linux" and target_arch in ("x86", "x86_64"))',
+									'OS == "win" or (OS == "linux" and target_arch == "x86_64")',
 									{
 										# Distributing the OSX version is done separately
 										'variables':

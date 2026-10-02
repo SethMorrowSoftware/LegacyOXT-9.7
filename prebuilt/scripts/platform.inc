@@ -132,7 +132,7 @@ function setCCForTarget {
 			if [ "${ARCH}" == "x86_64" ] ; then
 				CC="${CC_BASE} -m64 ${CC_FLAGS}"
 				CXX="${CXX_BASE} -m64 ${CC_FLAGS}"
-			elif [ "$1" == "x86" ] ; then
+			elif [ "${ARCH}" == "x86" -o "${ARCH}" == "i386" ] ; then
 				CC="${CC_BASE} -m32 ${CC_FLAGS}"
 				CXX="${CXX_BASE} -m32 ${CC_FLAGS}"
 			elif [ "${ARCH}" == "arm64" ] ; then
