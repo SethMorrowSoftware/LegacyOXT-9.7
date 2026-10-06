@@ -1268,9 +1268,11 @@ def _is_debug(parts):
     return parts[-1].endswith(('.dbg', '.pdb')) or any(p.endswith('.dSYM') for p in parts)
 
 
-def extract_bin_tar(path, dest, log):
+def extract_bin_tar(path, dest, log, skip_top_files=False):
     """Extract a CI build tarball into dest and return its build output
-    folder (the tarball's one top-level folder). Modes, symbolic links and
+    folder (the tarball's one top-level folder). With skip_top_files, files
+    at the top level (the licence files of a release's binaries archive,
+    package_dist.py) are left out. Modes, symbolic links and
     hard links are kept; debug symbols and "._" AppleDouble files (which
     macOS tar writes for extended attributes) are skipped. Member names are
     checked: nothing may land outside dest, by its name or through a
@@ -1293,6 +1295,8 @@ def extract_bin_tar(path, dest, log):
                 continue
             if _is_debug(parts):
                 skipped += 1
+                continue
+            if skip_top_files and len(parts) == 1 and not m.isdir():
                 continue
             tops.add(parts[0])
             target = os.path.join(dest, *parts)

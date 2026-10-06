@@ -1,0 +1,450 @@
+# Publishes one GitHub Release of LegacyOXT (LiveCode Community built from
+# LiveCode's source in this repository), for Windows, macOS and Linux, from
+# one tag v<version>-r<n> (<version> is BUILD_SHORT_VERSION of the file
+# version, 9.7.0-dp-1; <n> counts the releases built here: v9.7.0-dp-1-r1,
+# v9.7.0-dp-1-r2, ...). Adapted from OpenXTalk-Lite-1.15's workflow of the
+# same name. Jobs:
+#
+#   prepare   reads the version, checks the tag against it as the build
+#             workflows do, stops early when a release of the tag is
+#             published already, and chooses one build number
+#             (OXT_BUILD_NUMBER, the UTC time now as YYYYMMDDHHMM) for every
+#             platform;
+#   windows,  build-windows.yml, build-linux.yml and build-macos.yml, called
+#   linux,    as reusable workflows with that build number and the input
+#   macos     release (build as for a release); each builds, packages and
+#             tests its platform exactly as on a push to main, and uploads
+#             its packages as an artifact of this run:
+#               LegacyOXT-win-x86_64     installer, portable, binaries
+#                                             and symbols zips
+#               LegacyOXT-mac-universal  disk image, app zip, binaries
+#                                             tar.xz, symbols zip
+#               LegacyOXT-linux-x86_64   program tar.xz, binaries and
+#                                             symbols tar.xz
+#             each with its own SHA256SUMS;
+#   guard     the pristine guard (pristine-guard.yml): every difference
+#             from LiveCode's source is documented in CHANGES-FROM-LIVECODE.md;
+#   publish   runs only when every job of the three builds and the guard
+#             has passed. It downloads the three artifacts, checks each
+#             against its SHA256SUMS and the release's file list, writes one
+#             combined SHA256SUMS (tools/ci/release_assets.py) and the
+#             release notes (tools/ci/release_notes.py), then creates the
+#             release as a draft, uploads every file, checks the uploaded
+#             files, and only then publishes it.
+#
+# The release is published only when every platform's files are in it. When
+# anything fails before that, what is left is at most a draft, which nobody
+# but the maintainers sees, so the tag is not burned. Fix the cause and
+# re-run the failed jobs of the same run; the publish job then reuses the
+# draft (its notes must still name this run's commit, "from commit <sha>").
+# A tag whose release is published already is never changed, and publish
+# does not release a tag that no longer points at the commit this run
+# built.
+#
+# The release is named "LegacyOXT: LiveCode Community <version> (<tag>)".
+# A version with a pre-release part (9.7.0-dp-1: LiveCode's developer
+# preview) is published as a pre-release.
+#
+# Dry run: start this workflow by hand (Actions > Release > Run workflow) on
+# any branch or tag with "dry-run" ticked (the default). It builds, packages,
+# tests, assembles and checks everything as a release would, and uploads the
+# release files as the artifact "release-dry-run" (the notes are in the job
+# summary), but creates no release and no tag. A run by hand without
+# "dry-run" must be started on a tag v<version>-r<n>; tag-release.yml makes
+# the next one and starts this workflow on it.
+#
+# Permissions: every job reads only (contents: read), and called workflows
+# can only lower that; the publish job alone may write (contents: write),
+# for the release, and gives the token to the gh commands only.
+#
+# Reusable-workflow notes: inside a called workflow the github context is
+# this run's (github.ref is the tag), which is what the build workflows'
+# tag check needs. Their concurrency groups are literal names with this
+# run's id, never github.workflow, which would be "Release" in all of them.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: >-
+          Dry run: build, package, test and check everything and upload the
+          release files as the artifact release-dry-run, but create no
+          release and no tag. Without it, run this on a tag v<version>-r<n>.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# One release run per tag (or per branch, for dry runs) at a time; a second
+# one waits instead of cancelling a release half made
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare:
+    name: Prepare the release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.product.outputs.version }}
+      tag: ${{ steps.product.outputs.tag }}
+      build-number: ${{ steps.product.outputs.build-number }}
+      prerelease: ${{ steps.product.outputs.prerelease }}
+      dry-run: ${{ steps.product.outputs.dry-run }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # No step pushes or fetches, so the token need not stay in .git/config
+          persist-credentials: false
+
+      # The version rule and tag check of the build workflows (which check
+      # again, with the same github context), before hours of building. A
+      # release is made from a tag v<version>-r<n> only; a dry run from any
+      # branch or tag (a v* tag must still match), and then the tag in the
+      # summary is the next one. DRY_RUN is false for a tag push, which has
+      # no inputs.
+      - name: Read the product version and check the tag
+        id: product
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          version=$(sed -n 's/^BUILD_SHORT_VERSION = *//p' version | tr -d '\r')
+          # Trim white space at both ends, like the Trim() of the Windows step
+          version="${version#"${version%%[![:space:]]*}"}"
+          version="${version%"${version##*[![:space:]]}"}"
+          re='^[0-9]+(\.[0-9]+){1,3}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$'
+          if ! [[ $version =~ $re ]]; then
+            echo "::error::version (BUILD_SHORT_VERSION) contains '$version'; expected a version such as 0.0.1 or 0.1.0-beta.1"
+            exit 1
+          fi
+          # [vV]: the Windows step's -like 'v*' ignores case
+          if [ "$REF_TYPE" = tag ] && [[ $REF_NAME == [vV]* ]]; then
+            rebuild=${REF_NAME#"v$version-r"}
+            if [ "$rebuild" = "$REF_NAME" ] || ! [[ $rebuild =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::Tag $REF_NAME does not match BUILD_SHORT_VERSION ($version); the tags for this version are v$version-r1, v$version-r2 and so on"
+              exit 1
+            fi
+            tag=$REF_NAME
+          else
+            # Not a release tag (a dry run): the next release's tag, for the
+            # summary, after the highest published v<version>-r<n>
+            last=$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" --jq '.[].tag_name' |
+              while read -r t; do
+                n=${t#"v$version-r"}
+                if [ "$n" != "$t" ] && [[ $n =~ ^[1-9][0-9]*$ ]]; then echo "$n"; fi
+              done | sort -n | tail -n 1)
+            tag="v$version-r$(( ${last:-0} + 1 ))"
+          fi
+          if [ "$DRY_RUN" != true ] && { [ "$REF_TYPE" != tag ] || [ "$REF_NAME" != "$tag" ]; }; then
+            echo "::error::A release is made from a tag v$version-r<n>, not from the $REF_TYPE $REF_NAME: run tag-release.yml, or run this workflow on such a tag; on a branch, run it as a dry run"
+            exit 1
+          fi
+          # A pre-release when the version has a pre-release part (the tag
+          # is "v" and the version, so it contains a "-" too)
+          case $version in
+            *-*) prerelease=true ;;
+            *) prerelease=false ;;
+          esac
+          build_number=$(date -u +%Y%m%d%H%M)
+
+          # A published release is final (tags are never moved).
+          # With this job's read-only token the API shows published releases
+          # only (drafts, which a failed run may leave, are the publish
+          # job's to reuse); 404 means there is none.
+          if out=$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq .html_url 2>&1); then
+            if [ "$DRY_RUN" = true ]; then
+              echo "::notice::The release $tag is published already ($out); a dry run does not touch it"
+            else
+              echo "::error::The release $tag is published already ($out); it is never replaced. Tag the next release (tag-release.yml)."
+              exit 1
+            fi
+          elif ! grep -q 'HTTP 404' <<< "$out"; then
+            echo "::error::Could not check for a published release $tag: $out"
+            exit 1
+          fi
+
+          echo "LiveCode Community $version (LegacyOXT): tag $tag, build number $build_number, pre-release $prerelease, dry run ${DRY_RUN}"
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "build-number=$build_number"
+            echo "prerelease=$prerelease"
+            echo "dry-run=$DRY_RUN"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### LegacyOXT: LiveCode Community $version"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Tag | \`$tag\`$([ "$REF_TYPE" = tag ] || echo " (not created: dry run on the $REF_TYPE \`$REF_NAME\`)") |"
+            echo "| Commit | \`$GITHUB_SHA\` |"
+            echo "| Build number | \`$build_number\` (every platform) |"
+            echo "| Pre-release | $prerelease |"
+            echo "| Dry run | ${DRY_RUN} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The three builds, as on a push to main, with this run's build number;
+  # release: true makes them build as for a release in a dry run as well.
+  # Each needs only prepare, so they run side by side.
+  windows:
+    name: Windows
+    needs: prepare
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      build-number: ${{ needs.prepare.outputs.build-number }}
+      release: true
+
+  linux:
+    name: Linux
+    needs: prepare
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      build-number: ${{ needs.prepare.outputs.build-number }}
+      release: true
+
+  macos:
+    name: macOS
+    needs: prepare
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      build-number: ${{ needs.prepare.outputs.build-number }}
+      release: true
+
+  # The code must still be LiveCode's, apart from the documented changes
+  guard:
+    name: Pristine guard
+    needs: prepare
+    permissions:
+      contents: read
+    uses: ./.github/workflows/pristine-guard.yml
+
+  # Runs only when every job of the three builds and the guard passed (the
+  # called workflows' results cover all their jobs: the macOS tests after
+  # its package, the Linux arm64 and x86 builds). The only job that may
+  # write.
+  publish:
+    name: ${{ needs.prepare.outputs.dry-run == 'true' && 'Assemble the release (dry run)' || 'Publish GitHub Release' }}
+    needs: [prepare, windows, linux, macos, guard]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+      DRY_RUN: ${{ needs.prepare.outputs.dry-run }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # The scripts below only; the token stays out of .git/config
+          persist-credentials: false
+
+      # The packages of the three platforms, each into a folder named after
+      # its artifact (what release_assets.py expects). Artifacts of the
+      # called workflows belong to this run, so they are found by name.
+      - name: Download the Windows packages
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-win-x86_64
+          path: ${{ runner.temp }}/artifacts/LegacyOXT-win-x86_64
+
+      - name: Download the macOS packages
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-universal
+          path: ${{ runner.temp }}/artifacts/LegacyOXT-mac-universal
+
+      - name: Download the Linux packages
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-linux-x86_64
+          path: ${{ runner.temp }}/artifacts/LegacyOXT-linux-x86_64
+
+      # Each artifact against its own SHA256SUMS and the release's file
+      # list (none missing, none extra), then the files and one SHA256SUMS
+      # over all of them in release/
+      - name: Check and assemble the release files
+        run: |
+          python3 --version
+          python3 tools/ci/release_assets.py assemble --version "$VERSION" \
+            --artifacts "$RUNNER_TEMP/artifacts" --out "$RUNNER_TEMP/release"
+
+      # tools/ci/release_notes.py; the job summary shows them
+      - name: Write the release notes
+        run: |
+          python3 tools/ci/release_notes.py --version "$VERSION" --tag "$TAG" --commit "$GITHUB_SHA" \
+            --dir "$RUNNER_TEMP/release" --out "$RUNNER_TEMP/release-notes.md" --summary
+          head -n 12 "$RUNNER_TEMP/release-notes.md"
+
+      - name: Upload the release files (dry run)
+        if: needs.prepare.outputs.dry-run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-dry-run
+          path: ${{ runner.temp }}/release/*
+          if-no-files-found: error
+          retention-days: 30
+          # The files are compressed already
+          compression-level: 0
+
+      # Draft first, publish last: a failure anywhere before the final edit
+      # leaves at most a draft (not visible to users), so the tag is not
+      # burned; re-running the failed jobs of this
+      # run reuses that draft. A published release of the tag stops the job
+      # before anything is changed. VERSION is BUILD_SHORT_VERSION of the tagged
+      # commit (prepare), and GITHUB_REF must be the tag v<VERSION>-r<n>. The tag must also
+      # still point at this run's commit (GITHUB_SHA), checked at the start
+      # and again just before publishing: a tag deleted and pushed again at
+      # another commit while this run built, or before a re-run of it
+      # (re-runs keep the first attempt's GITHUB_SHA and GITHUB_REF), would
+      # otherwise get this commit's files.
+      - name: Create the draft release, upload the files and publish it
+        if: needs.prepare.outputs.dry-run != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$VERSION" ] || [[ $TAG != "v$VERSION-r"* ]] || [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            echo "::error::This run is for $GITHUB_REF, not for a tag v$VERSION-r<n> of the version ($VERSION). Nothing was published."
+            exit 1
+          fi
+          # The commit the tag points at now; the refs/tags/ form peels an
+          # annotated tag to its commit and never finds a branch of the
+          # same name
+          tag_commit() { gh api "repos/$GH_REPO/commits/refs/tags/$TAG" --jq .sha; }
+          check_tag_commit() {
+            local sha
+            sha=$(tag_commit) || { echo "::error::Could not resolve the tag $TAG"; exit 1; }
+            if [ "$sha" != "$GITHUB_SHA" ]; then
+              echo "::error::The tag $TAG now points at $sha, but this run built $GITHUB_SHA (was the tag moved after the run started?). Nothing was published; release the tag's commit with a new run."
+              exit 1
+            fi
+          }
+          check_tag_commit
+          cd "$RUNNER_TEMP/release"
+          files=(*)
+          echo "${#files[@]} files: ${files[*]}"
+
+          # Every release of the tag, drafts included (a token that may
+          # write sees drafts in the list; the tag endpoint shows published
+          # releases only), as "<id> <draft>"
+          releases_of_tag() {
+            gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$TAG\") | \"\(.id) \(.draft)\""
+          }
+          releases=$(releases_of_tag)
+          # (grep reads a here-string, not a pipe: with pipefail, grep -q
+          # ending a pipe early could make a match look like none)
+          if grep -q ' false$' <<< "$releases"; then
+            echo "::error::The release $TAG is published already; it is never replaced, and nothing was changed. Tag the next release (tag-release.yml)."
+            exit 1
+          fi
+          drafts=$(printf '%s\n' "$releases" | awk '$2 == "true" { print $1 }')
+          count=$(printf '%s\n' "$drafts" | grep -c . || true)
+          if [ "$count" -gt 1 ]; then
+            echo "::error::There are $count draft releases of $TAG ($(echo $drafts)). Delete all but one on the Releases page (or all of them) and re-run this job."
+            exit 1
+          elif [ "$count" = 1 ]; then
+            id=$drafts
+            # Only a draft of this commit is reused: a draft left by a run
+            # before the tag was moved names another commit and carries
+            # that run's notes and generated list of changes, which would
+            # go public with this commit's files. The notes are not
+            # rewritten instead, which would discard a maintainer's edits.
+            body=$(gh api "repos/$GH_REPO/releases/$id" --jq .body)
+            # here-string, not a pipe (see the pipefail note above)
+            if ! grep -qF "from commit $GITHUB_SHA" <<< "$body"; then
+              echo "::error::The draft release $id of $TAG was not made from this run's commit $GITHUB_SHA (an earlier run, before the tag was moved?). Delete it on the Releases page and re-run this job; nothing was changed."
+              exit 1
+            fi
+            echo "Reusing the draft release $id of $TAG, which an earlier attempt left; its title and notes stay as they are"
+          else
+            prerelease_flag=()
+            if [ "$PRERELEASE" = true ]; then prerelease_flag=(--prerelease); fi
+            # GitHub's generated list starts at the previous release: the
+            # latest published release whose tag starts with "v". Left to
+            # itself, GitHub starts at the latest tag of any kind, which can
+            # be an asset's (runtimes-*), and leaves out what came before
+            # that tag.
+            prev_tag=$(gh api --paginate "repos/$GH_REPO/releases?per_page=100" \
+                --jq '.[] | select(.draft == false and (.tag_name | startswith("v"))) | "\(.published_at) \(.tag_name)"' |
+              awk -v tag="$TAG" '$2 != tag' | sort | tail -n 1 | cut -d' ' -f2)
+            start_tag=()
+            if [ -n "$prev_tag" ]; then start_tag=(--notes-start-tag "$prev_tag"); fi
+            echo "Generated list of changes since: ${prev_tag:-(no earlier release)}"
+            # Our notes first, then GitHub's generated list of changes
+            title="LegacyOXT: LiveCode Community $VERSION ($TAG)"
+            gh release create "$TAG" --draft --verify-tag \
+              --title "$title" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" \
+              --generate-notes \
+              "${start_tag[@]}" \
+              "${prerelease_flag[@]}"
+            # The list can lag a moment behind the create
+            for attempt in 1 2 3 4 5; do
+              id=$(releases_of_tag | awk '$2 == "true" { print $1 }')
+              if [ "$(printf '%s\n' "$id" | grep -c . || true)" = 1 ]; then break; fi
+              if [ "$attempt" = 5 ]; then
+                echo "::error::Could not find the draft release of $TAG just created (found: $(echo $id)); re-run this job to reuse it"
+                exit 1
+              fi
+              sleep $((5 * attempt))
+            done
+            echo "Created the draft release $id of $TAG"
+          fi
+
+          # The files, replacing any of the same name (a draft reused after
+          # a failed upload); the check below fails on any other asset
+          gh release upload "$TAG" "${files[@]}" --clobber
+
+          # What GitHub has now: names, sizes, states and (for new uploads)
+          # SHA-256 digests, compared with the files and SHA256SUMS
+          gh api --paginate "repos/$GH_REPO/releases/$id/assets?per_page=100" \
+            --jq '.[] | [.name, .size, .state, (.digest // "")] | @tsv' > "$RUNNER_TEMP/assets.tsv"
+          cat "$RUNNER_TEMP/assets.tsv"
+          python3 "$GITHUB_WORKSPACE/tools/ci/release_assets.py" check-uploaded \
+            --dir "$RUNNER_TEMP/release" --assets "$RUNNER_TEMP/assets.tsv"
+
+          # Publishing is the last step; the pre-release flag is set here
+          # too, for a reused draft. The tag is checked once more, since
+          # the uploads can take long enough for it to be moved meanwhile.
+          check_tag_commit
+          gh release edit "$TAG" --verify-tag --draft=false --prerelease="$PRERELEASE"
+
+          state=$(gh api "repos/$GH_REPO/releases/$id" --jq '[.draft, .prerelease, .tag_name, .html_url] | @tsv')
+          echo "Release: $state"
+          IFS=$'\t' read -r draft prerelease tag_name url <<< "$state"
+          if [ "$draft" != false ] || [ "$prerelease" != "$PRERELEASE" ] || [ "$tag_name" != "$TAG" ]; then
+            echo "::error::The release $TAG is not as expected after publishing: draft $draft, pre-release $prerelease, tag $tag_name ($url)"
+            exit 1
+          fi
+          {
+            echo "### Published"
+            echo ""
+            echo "[LegacyOXT: LiveCode Community $VERSION ($TAG)]($url), pre-release: $PRERELEASE, ${#files[@]} files."
+          } >> "$GITHUB_STEP_SUMMARY"

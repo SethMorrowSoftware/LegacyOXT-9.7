@@ -12,12 +12,21 @@
 #
 # <build output folder> is a Linux build's linux-<arch>-bin or the macOS
 # build's Release folder: its development engine runs the builder, which
-# reads the LiveCode Builder interfaces from its modules/lci. The builder
-# unpacks the mergExt bundle for its documentation (builderExtUnpack); its
-# download URL is gone, so the bundle the packages carry
-# (Installer/legacyoxt/ext/Ext) is put where the builder looks for the
-# download first. Writes into the checkout's ide/Documentation; nothing
-# else outside <work folder>.
+# reads the LiveCode Builder interfaces from its modules/lci.
+#
+# For the documentation of the externals, the builder unpacks LiveCode's
+# mergExt and tsNet bundles of the Business edition (builderExtUnpack
+# "Business": mergExt_Business_2021-6-16.zip and tsNet_Business_1.4.5.zip
+# from downloads.livecode.com), as LiveCode's own Community builds did:
+# LiveCode Community 9.6.3's Dictionary documents tsNet and every mergExt
+# external although its packages ship neither tsNet nor most of mergExt.
+# Only their api.lcdoc files are read; nothing of them is packaged. This
+# script downloads them where the builder looks first; when LiveCode's
+# server no longer serves one, it puts a stand-in there instead (for
+# mergExt the packages' own Ext bundle, Installer/legacyoxt/ext/Ext; for
+# tsNet nothing), and the Dictionary then lacks those entries (a warning
+# says so). Writes into the checkout's ide/Documentation; nothing else
+# outside <work folder>.
 
 set -eu
 
@@ -53,12 +62,31 @@ for name in mac-bin linux-x86_64-bin; do
   ln -s "$bin" "$work/engines/$name"
 done
 
-# builder_utilities kMergExtVersion and builderMergExtDownloadedFilePath:
-# builderExtUnpack "Business" unzips this file when it is there instead of
-# downloading it
-zip_file="$work/work/ext/downloads/MergExt-Business-2021-6-16.zip"
-rm -f "$zip_file"
-(cd "$repo/Installer/legacyoxt/ext/Ext" && zip -qr "$zip_file" .)
+# builder_utilities: builderEnsureZip uses a bundle that is already at its
+# download path (builderMergExtDownloadedFilePath, kMergExtVersion;
+# builderTSNetDownloadedFilePath, kTSNetVersion) and downloads it otherwise
+downloads="$work/work/ext/downloads"
+fetch() {   # <url> <file>: 0 when <file> is a zip archive from <url>
+  rm -f "$2"
+  curl -fsSL --retry 3 --max-time 600 -o "$2" "$1" 2> /dev/null && unzip -tq "$2" > /dev/null 2>&1
+}
+mergext="$downloads/MergExt-Business-2021-6-16.zip"
+if fetch https://downloads.livecode.com/mergext/mergExt_Business_2021-6-16.zip "$mergext"; then
+  echo "mergExt: LiveCode's Business bundle ($(wc -c < "$mergext" | tr -d ' ') bytes)"
+else
+  echo "::warning title=Docs::LiveCode's mergExt Business bundle could not be downloaded; the Dictionary documents only the mergExt externals that the packages ship"
+  rm -f "$mergext"
+  (cd "$repo/Installer/legacyoxt/ext/Ext" && zip -qr "$mergext" .)
+fi
+tsnet="$downloads/tsNet_Business_1.4.5.zip"
+if fetch https://downloads.livecode.com/tsNet/tsNet_Business_1.4.5.zip "$tsnet"; then
+  echo "tsNet: LiveCode's Business bundle ($(wc -c < "$tsnet" | tr -d ' ') bytes)"
+else
+  echo "::warning title=Docs::LiveCode's tsNet bundle could not be downloaded; the Dictionary has no tsNet entries"
+  rm -f "$tsnet"
+  printf 'tsNet was not available; its documentation is left out.\n' > "$work/README-tsNet.txt"
+  (cd "$work" && zip -q "$tsnet" README-tsNet.txt)
+fi
 
 echo "Docs builder: $engine ($platform)"
 "$engine" -ui "$repo/builder/builder_tool.livecodescript" \

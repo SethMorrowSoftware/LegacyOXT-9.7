@@ -15,58 +15,56 @@
 # You should have received a copy of the GNU General Public License
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
-"""Build an oxt-runtimes-<label>.zip release asset: the standalone runtimes
-that OpenXTalk-Lite's packages install for platforms other than their own, so
-that every package can build standalones for all of them. tools/oxt/
-package.py installs the asset's files at their paths in the installed
-layout, without the parts the package's own build makes (the asset's
-"exclude" in tools/oxt/external-assets.json). There are two modes.
+"""Build a legacyoxt-runtimes-<label>.zip release asset: the standalone
+runtimes that LegacyOXT's packages install for platforms other than their
+own, so that every package can build standalones for all of them, as
+LiveCode's own installers could (Installer/package.txt installs every
+platform's runtime). tools/oxt/package.py installs the asset's files at
+their paths in the installed layout, without the parts the package's own
+build makes (the asset's "exclude" in tools/oxt/external-assets.json).
+There are two modes.
 
-From this repository's builds (--builds; the current asset)
------------------------------------------------------------
+From this repository's builds (--builds)
+----------------------------------------
 
   python tools/oxt/make_runtimes_asset.py --builds --label LABEL --out DIR
-      --bin win-x86=PATH --bin win-x86_64=PATH
-      --bin linux-x86=PATH --bin linux-x86_64=PATH
-      [--carry ZIP] [--assets-cache DIR] [--commit SHA]
+      --bin win-x86_64=PATH --bin linux-x86=PATH --bin linux-x86_64=PATH
+      --bin mac-universal=PATH [--commit SHA]
       [--run BUILDS=URL]... [--update-manifest [FILE]]
 
 Each PATH is a build output folder or the CI archive that holds one
-(OpenXTalk-Lite-win-x86-bin.zip, OpenXTalk-Lite-<ver>-win-x86_64-binaries.zip,
-OpenXTalk-Lite-linux-<arch>-bin.tar.xz), which is extracted to a temporary
-folder first. From each build the asset takes what package.py installs as
-that platform's own runtime, with package.py's tables
+(LegacyOXT-<ver>-win-x86_64-binaries.zip, LegacyOXT-linux-<arch>-bin.tar.xz,
+LegacyOXT-<ver>-mac-universal-binaries.tar.xz), which is extracted to a
+temporary folder first. From each build the asset takes what package.py
+installs as that platform's own runtime, with package.py's tables
 (package.plan_runtimes), and the timezone library's code for it:
 
-  Runtime/Windows/x86-32/**      win-x86 (the IDE's "Windows" target)
   Runtime/Windows/x86-64/**      win-x86_64
   Runtime/Linux/x86-32/**        linux-x86 (the IDE's "Linux" target)
   Runtime/Linux/x86-64/**        linux-x86_64
+  Runtime/Mac OS X/x86-64/**     mac-universal (the IDE's macOS target;
+                                 its engine holds arm64 and x86_64)
   Extensions/com.livecode.library.timezone/code/<platform id>/**
-                                 x86-win32, x86_64-win32, x86-linux,
-                                 x86_64-linux
+                                 x86_64-win32, x86-linux, x86_64-linux,
+                                 universal-mac-macosx
   Extensions/com.livecode.library.timezone/resources/**
                                  the zoneinfo data, from linux-x86_64 (the
-                                 Windows builds do not make it)
+                                 Windows build does not make it)
 
-What this repository does not build yet is carried over unchanged from the
-earlier asset oxt-runtimes-1.15 (OpenXTalk Lite 1.15's files): Runtime/
-Android/** and the timezone library's Android code. That archive is
-downloaded into the assets cache (prebuilt/fetched-assets, or
---assets-cache) unless --carry names a copy; either way its SHA-256 must
-be the one recorded here (CARRY_ASSET). Its PROVENANCE.md goes into the
-new archive as PROVENANCE-oxt-runtimes-1.15.md.
+There is no Windows x86-32 runtime (LiveCode's 32-bit Windows prebuilt
+libraries are not available any more) and no Android runtime.
 
-Every .exe, .dll, .so and engine must be a PE or ELF file of its build's
-architecture, and every Standalone must carry this source tree's engine
-version (BUILD_SHORT_VERSION in the file "version"), so that a mislabelled
-or stale file cannot get in. --commit and --run (BUILDS: build names
-separated by commas, URL: the CI run they come from) are recorded in
-PROVENANCE.md. The release tag is runtimes-<LABEL>; --update-manifest
-replaces the oxt-runtimes-* entries of the manifest with this asset's,
-whose "exclude" leaves out what each package builds itself (OWN_PARTS).
-.github/workflows/runtimes.yml runs this on the artifacts of a Windows and
-a Linux CI run and can publish the result.
+Every .exe, .dll, .so, .dylib and engine must be a PE, ELF or Mach-O file
+of its build's architectures, and every standalone engine must carry this
+source tree's engine version (BUILD_SHORT_VERSION in the file "version"),
+so that a mislabelled or stale file cannot get in. --commit and --run
+(BUILDS: build names separated by commas, URL: the CI run they come from)
+are recorded in PROVENANCE.md. The release tag is assets-<LABEL>;
+--update-manifest replaces the legacyoxt-runtimes-* entries of the
+manifest with this asset's, whose "exclude" leaves out what each package
+builds itself (OWN_PARTS). .github/workflows/assets.yml runs this on the
+artifacts of a Windows, a Linux and a macOS CI run and can publish the
+result.
 
 From an installed OpenXTalk Lite folder (how oxt-runtimes-1.15 was made)
 ------------------------------------------------------------------------
@@ -135,8 +133,9 @@ import fetch_assets  # noqa: E402
 import layout  # noqa: E402
 import package  # noqa: E402
 
-REPO_URL = 'https://github.com/SethMorrowSoftware/OpenXTalk-Lite-1.15'
-RELEASE_TAG_FMT = 'runtimes-{version}'
+REPO_URL = 'https://github.com/SethMorrowSoftware/LegacyOXT-9.7'
+ASSET_PREFIX = 'legacyoxt-runtimes-'
+RELEASE_TAG_FMT = 'assets-{version}'
 DEFAULT_MANIFEST = os.path.join(HERE, 'external-assets.json')
 
 # (prefix, group title). Every included file is under one of these and is
@@ -564,32 +563,18 @@ TZ_BUILD = 'packaged_extensions/com.livecode.library.timezone/'
 
 # The builds the asset is made from (package.py platforms): the timezone
 # library's code folder each one makes (common.gypi platform_id), and what
-# its binaries must be (binfmt.arch_of)
+# its binaries must be (binfmt.arch_of). There is no 32-bit Windows build
+# (LiveCode's 32-bit prebuilt libraries are gone) and no Android build.
 BUILDS = collections.OrderedDict([
-    ('win-x86', ('x86-win32', 'pe', 'x86')),
-    ('win-x86_64', ('x86_64-win32', 'pe', 'x86_64')),
-    ('linux-x86', ('x86-linux', 'elf', 'x86')),
-    ('linux-x86_64', ('x86_64-linux', 'elf', 'x86_64')),
+    ('win-x86_64', ('x86_64-win32', 'pe', ['x86_64'])),
+    ('linux-x86', ('x86-linux', 'elf', ['x86'])),
+    ('linux-x86_64', ('x86_64-linux', 'elf', ['x86_64'])),
+    ('mac-universal', ('universal-mac-macosx', 'macho', ['arm64', 'x86_64'])),
 ])
 
 # The zoneinfo data (tz.gyp target tzdata), which the Linux and macOS
 # builds make and the Windows builds do not
 TZDATA_BUILD = 'linux-x86_64'
-
-# The earlier asset that the parts this repository does not build yet are
-# carried over from, unchanged: the Android runtime and the timezone
-# library's Android code, from OpenXTalk Lite 1.15
-CARRY_ASSET = collections.OrderedDict([
-    ('id', 'oxt-runtimes-1.15'),
-    ('url', REPO_URL + '/releases/download/runtimes-1.15/oxt-runtimes-1.15.zip'),
-    ('sha256', '6811d5cc028ea15f7e784ff58c03e4bc8994507f7f56e62fa148a27673cf995a'),
-    ('size', 199237317),
-    ('kind', 'zip'),
-    ('strip', 1),
-    ('dest', ''),
-])
-CARRY = ('Runtime/Android/', TZ + 'code/arm64-android/', TZ + 'code/armv7-android/',
-         TZ + 'code/x86-android/', TZ + 'code/x86_64-android/')
 
 # What each package's own build makes, which it therefore leaves out of
 # the asset (the asset's "exclude" in external-assets.json). linux-arm64
@@ -599,11 +584,11 @@ OWN_PARTS = collections.OrderedDict([
     ('win-x86_64', ['Runtime/Windows/x86-64/**', TZ + 'code/x86_64-win32/**']),
     ('linux-x86_64', ['Runtime/Linux/x86-64/**', TZ + 'code/x86_64-linux/**', TZ + 'resources/**']),
     ('linux-arm64', [TZ + 'resources/**']),
-    ('mac-*', [TZ + 'resources/**']),
+    ('mac-*', ['Runtime/Mac OS X/**', TZ + 'code/universal-mac-macosx/**', TZ + 'resources/**']),
 ])
 
 # Names of files that must be binaries of their build's architecture
-BINARY_NAMES = re.compile(r'(\.exe|\.dll|\.so|\.lcext|/Standalone|-cefprocess)$')
+BINARY_NAMES = re.compile(r'(\.exe|\.dll|\.so|\.dylib|\.lcext|/Standalone|/Standalone-Community|-cefprocess)$')
 ZIP_EPOCH = 315532800  # zip dates start in 1980
 
 
@@ -660,7 +645,9 @@ def open_build(name, spec, work):
     archive that holds it (a zip or a tarball), which is extracted into
     work first. Returns (folder, what to record about the archive, or
     None)."""
-    bin_name = package.PLATFORMS[name].bin_default
+    # the folder a CI archive holds: win-x86_64-bin, linux-<arch>-bin, or
+    # Release (the macOS build's _build/mac/Release)
+    bin_name = package.PLATFORMS[name].bin_default.rsplit('/', 1)[-1]
     if os.path.isdir(spec):
         return os.path.abspath(spec), None
     if not os.path.isfile(spec):
@@ -695,7 +682,8 @@ def open_build(name, spec, work):
         folder = os.path.join(dest, bin_name)
     else:
         try:
-            folder = package.extract_bin_tar(spec, dest, print)
+            # a release's binaries archive also has its licence files at the top
+            folder = package.extract_bin_tar(spec, dest, print, skip_top_files=True)
         except (package.PackageError, tarfile.TarError) as e:
             raise SystemExit('error: %s' % e)
         if os.path.basename(folder) != bin_name:
@@ -726,9 +714,14 @@ def build_infos(name, items):
         if it.origin == 'generated':
             generated.append(it)
             continue
+        if os.path.islink(it.source):
+            raise SystemExit('error: %s (from %s) is a symbolic link; the asset stores files only'
+                             % (it.target, name))
         size, sha, head = digest(it.source)
+        # 'elf': stored as executable (0755), as are Mach-O files
+        executable = binfmt.sniff(binfmt.read_file(it.source, 64)) in ('elf', 'macho')
         infos.append({'path': it.target, 'size': size, 'sha256': sha, 'mtime': int(os.stat(it.source).st_mtime),
-                      'elf': head == binfmt.ELF_MAGIC, 'from': name, 'source': it.source})
+                      'elf': executable, 'from': name, 'source': it.source})
     newest = max([i['mtime'] for i in infos] or [ZIP_EPOCH])
     for it in generated:
         infos.append({'path': it.target, 'size': len(it.data), 'sha256': hashlib.sha256(it.data).hexdigest(),
@@ -746,11 +739,11 @@ def check_build(name, infos, version):
             continue
         kind, archs = binfmt.arch_of(i['source'])
         if kind or BINARY_NAMES.search(i['path']):
-            if kind != fmt or archs != [arch]:
+            if kind != fmt or sorted(archs) != sorted(arch):
                 problems.append('%s (from %s) is %s, expected %s %s'
                                 % (i['path'], name, ('%s %s' % (kind.upper(), ' '.join(archs))) if kind
-                                   else 'not a binary', fmt.upper(), arch))
-        if i['path'].rsplit('/', 1)[-1] == 'Standalone':
+                                   else 'not a binary', fmt.upper(), ' and '.join(arch)))
+        if i['path'].rsplit('/', 1)[-1] in ('Standalone', 'Standalone-Community'):
             found = file_versions(i['source'])
             if version not in found:
                 problems.append('%s (from %s) does not carry the engine version %s (found: %s)'
@@ -759,64 +752,15 @@ def check_build(name, infos, version):
     return problems
 
 
-def carried_infos(path):
-    """(file records, PROVENANCE.md bytes) of the parts carried over from
-    CARRY_ASSET's archive at path (checked against its SHA-256)."""
-    problem = fetch_assets.check_file(CARRY_ASSET, path)
-    if problem:
-        raise SystemExit('error: %s is not %s: %s' % (path, CARRY_ASSET['id'], problem))
-    infos, provenance_text, seen = [], None, set()
-    with zipfile.ZipFile(path) as z:
-        for info in z.infolist():
-            if info.filename.endswith('/'):
-                continue
-            rel = info.filename.split('/', CARRY_ASSET['strip'])[-1]
-            if rel == 'PROVENANCE.md':
-                provenance_text = z.read(info)
-                continue
-            prefix = next((c for c in CARRY if rel.startswith(c)), None)
-            if prefix is None:
-                continue
-            seen.add(prefix)
-            h = hashlib.sha256()
-            with z.open(info) as src:
-                head = src.read(4)
-                h.update(head)
-                while True:
-                    b = src.read(1 << 20)
-                    if not b:
-                        break
-                    h.update(b)
-            infos.append({'path': rel, 'size': info.file_size, 'sha256': h.hexdigest(),
-                          'mtime': calendar.timegm(info.date_time + (0, 0, 0)), 'elf': head == binfmt.ELF_MAGIC,
-                          'from': CARRY_ASSET['id'], 'zipinfo': info})
-    missing = [c for c in CARRY if c not in seen]
-    if provenance_text is None:
-        missing.append('PROVENANCE.md')
-    if missing:
-        raise SystemExit('error: %s lacks %s' % (path, ', '.join(missing)))
-    return infos, provenance_text
-
-
-def write_builds_zip(path, name, infos, carry_zip, extra):
+def write_builds_zip(path, name, infos, extra):
     """The archive: every record under <name>/, sorted, then the extra
-    (file name, bytes, mtime) files. Carried members keep their dates and
-    modes; the others get their files' dates (UTC) and 0755 for ELF
-    files."""
+    (file name, bytes, mtime) files, with their files' dates (UTC) and
+    0755 for ELF and Mach-O files."""
     tmp = path + '.tmp'
-    with zipfile.ZipFile(tmp, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z, \
-            zipfile.ZipFile(carry_zip) as cz:
+    with zipfile.ZipFile(tmp, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for i in sorted(infos, key=lambda x: x['path']):
             target = '%s/%s' % (name, i['path'])
-            if 'zipinfo' in i:
-                src = i['zipinfo']
-                zi = zipfile.ZipInfo(target, date_time=src.date_time)
-                zi.compress_type = zipfile.ZIP_DEFLATED
-                zi.create_system = src.create_system
-                zi.external_attr = src.external_attr
-                with cz.open(src) as s, z.open(zi, 'w') as d:
-                    shutil.copyfileobj(s, d, 1 << 20)
-            elif 'data' in i:
+            if 'data' in i:
                 z.writestr(zip_info(target, i['mtime']), i['data'])
             else:
                 with open(i['source'], 'rb') as s, z.open(zip_info(target, i['mtime'], i['elf']), 'w') as d:
@@ -844,36 +788,37 @@ def parse_pairs(values, what):
 
 def builds_provenance(name, version, commit, runs, sources, infos):
     by_from = collections.OrderedDict((b, []) for b in BUILDS)
-    by_from[CARRY_ASSET['id']] = []
     for i in infos:
         by_from[i['from']].append(i)
     L = []
     add = L.append
-    add('# %s: standalone runtimes for OpenXTalk-Lite' % name)
+    add('# %s: standalone runtimes for LegacyOXT' % name)
     add('')
-    add('This archive is an external asset of OpenXTalk-Lite (%s). OpenXTalk-Lite\'s' % REPO_URL)
-    add('packager (`tools/oxt/package.py`) adds its files to the installed layout at the')
-    add('same paths, so that every OpenXTalk-Lite package can build standalones for these')
-    add('platforms, not only for its own. A package leaves out what its own build makes')
-    add('(the asset\'s "exclude" in `tools/oxt/external-assets.json`):')
+    add('This archive is an external asset of LegacyOXT (%s), LiveCode Community' % REPO_URL)
+    add('built from source. Its packager (`tools/oxt/package.py`) adds these files to the')
+    add('installed layout at the same paths, so that every package can build standalones')
+    add('for all of these platforms, as LiveCode\'s own installers could')
+    add('(`Installer/package.txt` installs every platform\'s runtime). A package leaves out')
+    add('what its own build makes (the asset\'s "exclude" in `tools/oxt/external-assets.json`):')
     add('')
     for plat, globs in OWN_PARTS.items():
         add('- `%s`: %s' % (plat, ', '.join('`%s`' % g for g in globs)))
     add('')
-    add('## Built from OpenXTalk-Lite\'s source')
+    add('## Built from LiveCode\'s source')
     add('')
-    add('The Windows and Linux runtimes (engines, support libraries, externals, database')
-    add('drivers and, where there is one, the browser\'s CEF files), the timezone')
-    add('library\'s code for those platforms and its zoneinfo data were built by')
-    add('OpenXTalk-Lite\'s continuous integration and taken from the build outputs by')
-    add('`tools/oxt/make_runtimes_asset.py --builds`, which installs each one as')
-    add('`tools/oxt/package.py` installs a platform\'s own runtime.')
+    add('The runtimes (engines, support libraries, externals, database drivers and, where')
+    add('there is one, the browser\'s CEF files), the timezone library\'s code for those')
+    add('platforms and its zoneinfo data were built by LegacyOXT\'s continuous integration')
+    add('and taken from the build outputs by `tools/oxt/make_runtimes_asset.py --builds`,')
+    add('which installs each one as `tools/oxt/package.py` installs a platform\'s own')
+    add('runtime. There is no Windows x86-32 and no Android runtime: LiveCode\'s 32-bit')
+    add('Windows prebuilt libraries are not available any more, and Android is not built.')
     add('')
     if commit:
         add('- Source: %s, commit `%s`' % (REPO_URL, commit))
     else:
         add('- Source: %s (the commit was not recorded)' % REPO_URL)
-    add('- Engine version `%s` (`BUILD_SHORT_VERSION`), found in every `Standalone` engine' % version)
+    add('- Engine version `%s` (`BUILD_SHORT_VERSION`), found in every standalone engine' % version)
     add('')
     add('| build | folders in this archive | files | bytes | taken from |')
     add('|---|---|---:|---:|---|')
@@ -888,19 +833,6 @@ def builds_provenance(name, version, commit, runs, sources, infos):
         add('| `%s` | %s | %d | %s | %s |' % (b, ', '.join('`%s`' % f for f in folders), len(items),
                                             '{:,}'.format(sum(i['size'] for i in items)), where))
     add('')
-    carried = by_from[CARRY_ASSET['id']]
-    add('## Carried over from %s' % CARRY_ASSET['id'])
-    add('')
-    add('OpenXTalk-Lite does not build the Android runtime yet. `Runtime/Android` and the')
-    add('timezone library\'s Android code (`code/*-android`) are taken unchanged from the')
-    add('earlier runtimes asset `%s`' % CARRY_ASSET['id'])
-    add('(%s, %s bytes,' % (CARRY_ASSET['url'], '{:,}'.format(CARRY_ASSET['size'])))
-    add('SHA-256 `%s`): %d files, %s bytes.' % (CARRY_ASSET['sha256'], len(carried),
-                                                 '{:,}'.format(sum(i['size'] for i in carried))))
-    add('They are OpenXTalk Lite 1.15\'s files, built from LiveCode Community 9.6.3;')
-    add('that archive\'s PROVENANCE.md, which records where each one comes from, is')
-    add('included here as `PROVENANCE-%s.md`.' % CARRY_ASSET['id'])
-    add('')
     add('## Engines')
     add('')
     for i in sorted(infos, key=lambda x: x['path']):
@@ -910,25 +842,20 @@ def builds_provenance(name, version, commit, runs, sources, infos):
     add('')
     add('## Corresponding source and licences')
     add('')
-    add('- The engines, externals, database drivers and timezone library code built')
-    add('  from OpenXTalk-Lite: GNU GPL v3, with the exception in LICENSE-EXCEPTION.md; the')
-    add('  source is %s at the commit above. The third-party' % REPO_URL)
+    add('- The engines, externals, database drivers and timezone library code, built')
+    add('  from LiveCode Community: GNU GPL v3, with the exception in LICENSE-EXCEPTION.md;')
+    add('  the source is %s at the commit above. The third-party' % REPO_URL)
     add('  libraries compiled into them (OpenSSL, curl, ICU, SQLite, the database client')
-    add('  libraries and others) are listed with their licences in THIRD-PARTY-NOTICES.md')
-    add('  of the repository and of every package; BUILDING.md says how they are built.')
-    add('- `Externals/CEF` of the Windows runtimes and of `Runtime/Linux/x86-64`: the')
+    add('  libraries and others) are listed with their licences in THIRD-PARTY-NOTICES.md.')
+    add('- `Externals/CEF` of the Windows runtime and of `Runtime/Linux/x86-64`: the')
     add('  Chromium Embedded Framework binary distribution that `prebuilt/versions/cef`')
-    add('  names, as built and published by Spotify (https://cef-builds.spotifycdn.com;')
-    add('  SHA-1 pinned in `prebuilt/cef-sha1sums`): BSD-3-Clause, with the licences of')
-    add('  Chromium and its components (see THIRD-PARTY-NOTICES.md).')
+    add('  names: BSD-3-Clause, with the licences of Chromium and its components.')
     add('- Timezone data (`resources/zoneinfo`): compiled with `zic` from the IANA time')
     add('  zone database, which is in the public domain (`extensions/libraries/timezone/tz`).')
-    add('- The Android runtime and the timezone library\'s Android code: see')
-    add('  `PROVENANCE-%s.md`.' % CARRY_ASSET['id'])
     add('')
     add('## Files')
     add('')
-    add('Times are the files\' modification times in the builds or in %s (UTC).' % CARRY_ASSET['id'])
+    add('Times are the files\' modification times in the builds (UTC).')
     add('')
     add('| path | bytes | SHA-256 | modified | from |')
     add('|---|---:|---|---|---|')
@@ -955,20 +882,17 @@ def builds_manifest_entry(name, label, sha, size, commit):
         ('exclude', collections.OrderedDict((k, list(v)) for k, v in OWN_PARTS.items())),
         ('exclude_note', 'What each package\'s own build makes: Windows x86-64 its runtime and the timezone '
                          'library\'s code for it; Linux x86-64 the same and the zoneinfo data (tz.gyp target '
-                         'tzdata, which the Windows builds do not make); Linux arm64 and macOS the zoneinfo '
-                         'data (their own runtimes are not in this asset).'),
-        ('description', 'Standalone runtimes for the platforms other than the package\'s own, built from this '
-                        'repository (%s): Windows x86-32 and x86-64 and Linux x86-32 and x86-64 engines with '
-                        'their externals, the timezone library\'s code for them and its zoneinfo data; and the '
-                        'Android runtime with the timezone library\'s Android code, carried over unchanged from '
-                        'oxt-runtimes-1.15 (OpenXTalk Lite 1.15). See PROVENANCE.md in the archive.'
+                         'tzdata, which the Windows build does not make); macOS its runtime, its code and the '
+                         'zoneinfo data; Linux arm64 the zoneinfo data.'),
+        ('description', 'Standalone runtimes for the platforms other than the package\'s own, built from '
+                        'LiveCode\'s source in this repository (%s): Windows x86-64, Linux x86-32 and x86-64 and '
+                        'macOS (universal) engines with their externals, the timezone library\'s code for them '
+                        'and its zoneinfo data. See PROVENANCE.md in the archive.'
                         % ('commit %s' % commit[:12] if commit else 'see PROVENANCE.md')),
-        ('licence', 'GPL-3.0 with the exception in LICENSE-EXCEPTION.md (OpenXTalk-Lite builds); GPL-3.0 '
-                    '(the Android runtime from LiveCode Community 9.6.3); CEF: BSD-3-Clause with Chromium\'s '
-                    'licences; IANA tz data: public domain; see PROVENANCE.md'),
-        ('source', 'OpenXTalk-Lite\'s CI builds win-x86, win-x86_64, linux-x86 and linux-x86_64%s, made with '
-                   'tools/oxt/make_runtimes_asset.py --builds; the Android parts from oxt-runtimes-1.15'
-                   % (' of commit %s' % commit if commit else '')),
+        ('licence', 'GPL-3.0 with the exception in LICENSE-EXCEPTION.md (LiveCode Community); CEF: '
+                    'BSD-3-Clause with Chromium\'s licences; IANA tz data: public domain; see PROVENANCE.md'),
+        ('source', 'LegacyOXT\'s CI builds win-x86_64, linux-x86, linux-x86_64 and mac-universal%s, made with '
+                   'tools/oxt/make_runtimes_asset.py --builds' % (' of commit %s' % commit if commit else '')),
     ])
 
 
@@ -978,7 +902,7 @@ def replace_runtimes_entry(path, entry):
         data = json.load(f, object_pairs_hook=collections.OrderedDict)
     out, placed = [], False
     for a in data.get('assets', []):
-        if str(a.get('id', '')).startswith('oxt-runtimes-'):
+        if str(a.get('id', '')).startswith(ASSET_PREFIX):
             if not placed:
                 out.append(entry)
                 placed = True
@@ -1002,7 +926,7 @@ def builds_main(args, p):
     if missing:
         p.error('--builds needs --bin for %s' % ', '.join(missing))
     runs = parse_pairs(args.run, '--run')
-    name = args.name or 'oxt-runtimes-%s' % args.label
+    name = args.name or ASSET_PREFIX + args.label
     repo = os.path.dirname(os.path.dirname(HERE))
     version = engine_version(repo)
 
@@ -1019,16 +943,6 @@ def builds_main(args, p):
             problems += check_build(b, these, version)
             infos += these
             print('%s: %d files from %s' % (b, len(these), folder))
-        carry_path = args.carry
-        if not carry_path:
-            cache = fetch_assets.cache_dir(repo, args.assets_cache)
-            try:
-                carry_path = fetch_assets.fetch(CARRY_ASSET, cache, log=print)
-            except fetch_assets.AssetError as e:
-                raise SystemExit('error: %s' % e)
-        carried, carried_provenance = carried_infos(carry_path)
-        infos += carried
-        print('%s: %d files carried over' % (CARRY_ASSET['id'], len(carried)))
         seen = {}
         for i in infos:
             key = i['path'].lower()
@@ -1044,9 +958,7 @@ def builds_main(args, p):
         newest = max(i['mtime'] for i in infos)
         os.makedirs(args.out, exist_ok=True)
         zip_path = os.path.join(args.out, name + '.zip')
-        write_builds_zip(zip_path, name, infos, carry_path,
-                         [('PROVENANCE.md', text.encode('utf-8'), newest),
-                          ('PROVENANCE-%s.md' % CARRY_ASSET['id'], carried_provenance, newest)])
+        write_builds_zip(zip_path, name, infos, [('PROVENANCE.md', text.encode('utf-8'), newest)])
     finally:
         shutil.rmtree(work, ignore_errors=True)
     with open(os.path.join(args.out, 'PROVENANCE.md'), 'w', encoding='utf-8', newline='\n') as f:
@@ -1083,8 +995,6 @@ def main(argv=None):
                                    'runtimes-<label>')
     p.add_argument('--bin', action='append', metavar='BUILD=PATH',
                    help='--builds: a build output folder or CI archive, for each of %s' % ', '.join(BUILDS))
-    p.add_argument('--carry', metavar='ZIP', help='--builds: a copy of %s.zip (default: downloaded into the assets '
-                                                  'cache)' % CARRY_ASSET['id'])
     p.add_argument('--assets-cache', metavar='DIR', help='--builds: the assets cache (default: '
                                                          'prebuilt/fetched-assets, or OXT_ASSETS_CACHE)')
     p.add_argument('--commit', help='--builds: the commit the builds were made from, for PROVENANCE.md')
@@ -1099,8 +1009,8 @@ def main(argv=None):
     args = p.parse_args(argv)
     if args.builds:
         return builds_main(args, p)
-    if args.label or args.bin or args.carry or args.assets_cache or args.commit or args.run:
-        p.error('--label, --bin, --carry, --assets-cache, --commit and --run go with --builds')
+    if args.label or args.bin or args.assets_cache or args.commit or args.run:
+        p.error('--label, --bin, --assets-cache, --commit and --run go with --builds')
 
     root = args.installed_root
     if not root:

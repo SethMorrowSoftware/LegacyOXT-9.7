@@ -1,0 +1,293 @@
+# Makes the two external assets that every package installs, from the
+# build outputs of one Windows, one Linux and one macOS CI run of the same
+# commit, and can publish them as a GitHub Release:
+#
+#   legacyoxt-runtimes-<label>.zip  the standalone runtimes of the other
+#                                   platforms (Windows x86-64, Linux x86 and
+#                                   x86-64, macOS universal), as LiveCode's
+#                                   installers carried every platform's
+#                                   (tools/oxt/make_runtimes_asset.py
+#                                   --builds, which says what it holds)
+#   legacyoxt-docs-<label>.zip      the IDE's documentation data, written by
+#                                   LiveCode's docs builder in the Linux
+#                                   package job (tools/ci/build_docs.sh;
+#                                   tools/oxt/make_docs_asset.py)
+#
+# Start it by hand (Actions > Assets > Run workflow) with:
+#
+#   label        the assets' label: the archives legacyoxt-runtimes-<label>.zip
+#                and legacyoxt-docs-<label>.zip, released under the tag
+#                assets-<label> (for example 9.7.0-dp-1)
+#   windows-run  the id (the number in its URL) of a "Build (Windows)" run
+#                whose job "Build win-x86_64" passed
+#   linux-run    the id of a "Build (Linux)" run of the same commit whose
+#                jobs "Build linux-x86", "Build linux-x86_64" and
+#                "Package linux-x86_64" passed
+#   macos-run    the id of a "Build (macOS)" run of the same commit whose
+#                job "Package mac-universal" passed
+#   publish      also publish the archives as the pre-release assets-<label>,
+#                tagged at that commit, which must be on main; without it
+#                they are only the artifact assets of this run
+#
+# The packages take the assets once tools/oxt/external-assets.json pins
+# them: the job summary shows the two entries, which
+# make_runtimes_asset.py --update-manifest and make_docs_asset.py
+# --update-manifest also write. A tag that exists already is never
+# changed: assets are published once, and new ones get a new label.
+#
+# Adapted from OXT-Beyond's runtimes.yml. Permissions: the assemble job
+# reads the repository and the runs' artifacts (contents: read, actions:
+# read); only the publish job may write (contents: write), for the release.
+
+name: Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      label:
+        description: >-
+          Label: the archives legacyoxt-runtimes-<label>.zip and
+          legacyoxt-docs-<label>.zip under the tag assets-<label>
+        required: true
+        type: string
+      windows-run:
+        description: Id of a "Build (Windows)" run whose win-x86_64 build passed
+        required: true
+        type: string
+      linux-run:
+        description: Id of a "Build (Linux)" run of the same commit whose x86 and x86_64 builds and package passed
+        required: true
+        type: string
+      macos-run:
+        description: Id of a "Build (macOS)" run of the same commit whose package passed
+        required: true
+        type: string
+      publish:
+        description: Publish the archives as the pre-release assets-<label> (the commit must be on main)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: assets-${{ inputs.label }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  assemble:
+    name: Assemble assets-${{ inputs.label }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      commit: ${{ steps.runs.outputs.commit }}
+    env:
+      LABEL: ${{ inputs.label }}
+      WINDOWS_RUN: ${{ inputs.windows-run }}
+      LINUX_RUN: ${{ inputs.linux-run }}
+      MACOS_RUN: ${{ inputs.macos-run }}
+    steps:
+      # Each run must be of its build workflow and must have passed the jobs
+      # whose outputs the assets take; all three must have built the same
+      # commit
+      - name: Check the label and the three runs
+        id: runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          fail() { echo "::error::$*"; exit 1; }
+          [[ "$LABEL" =~ ^[0-9A-Za-z][0-9A-Za-z._-]*$ ]] || fail "label '$LABEL': use letters, digits, '.', '_' and '-'"
+          for id in "$WINDOWS_RUN" "$LINUX_RUN" "$MACOS_RUN"; do
+            [[ "$id" =~ ^[0-9]+$ ]] || fail "'$id' is not a run id"
+          done
+          # sets run_sha (not a command substitution, so that fail ends the step)
+          check_run() {
+            local id=$1 file=$2 info path branch job conclusion
+            shift 2
+            info=$(gh api "repos/$GH_REPO/actions/runs/$id" --jq '[.path, .head_sha, .head_branch] | @tsv') ||
+              fail "cannot read the run $id"
+            IFS=$'\t' read -r path run_sha branch <<< "$info"
+            [ "$path" = ".github/workflows/$file" ] || fail "run $id is of $path, not of .github/workflows/$file"
+            for job in "$@"; do
+              conclusion=$(gh api --paginate "repos/$GH_REPO/actions/runs/$id/jobs?per_page=100" \
+                --jq ".jobs[] | select(.name == \"$job\") | .conclusion")
+              [ "$conclusion" = success ] || fail "job \"$job\" of run $id: ${conclusion:-not found}"
+            done
+            echo "run $id: $file on $branch at $run_sha"
+          }
+          check_run "$WINDOWS_RUN" build-windows.yml "Build win-x86_64"
+          windows_sha=$run_sha
+          check_run "$LINUX_RUN" build-linux.yml "Build linux-x86" "Build linux-x86_64" "Package linux-x86_64"
+          linux_sha=$run_sha
+          check_run "$MACOS_RUN" build-macos.yml "Package mac-universal"
+          macos_sha=$run_sha
+          [ "$windows_sha" = "$linux_sha" ] && [ "$linux_sha" = "$macos_sha" ] ||
+            fail "the runs built different commits: $windows_sha (Windows), $linux_sha (Linux), $macos_sha (macOS)"
+          echo "commit=$windows_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the builds' commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.runs.outputs.commit }}
+          persist-credentials: false
+
+      - name: Download the win-x86_64 packages (for the binaries zip)
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-win-x86_64
+          path: ${{ runner.temp }}/builds/win-x86_64
+          run-id: ${{ inputs.windows-run }}
+          github-token: ${{ github.token }}
+
+      - name: Download the linux-x86 build
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-linux-x86-bin
+          path: ${{ runner.temp }}/builds/linux-x86
+          run-id: ${{ inputs.linux-run }}
+          github-token: ${{ github.token }}
+
+      - name: Download the linux-x86_64 build
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-linux-x86_64-bin
+          path: ${{ runner.temp }}/builds/linux-x86_64
+          run-id: ${{ inputs.linux-run }}
+          github-token: ${{ github.token }}
+
+      - name: Download the mac-universal packages (for the binaries tar.xz)
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-universal
+          path: ${{ runner.temp }}/builds/mac-universal
+          run-id: ${{ inputs.macos-run }}
+          github-token: ${{ github.token }}
+
+      - name: Download the documentation data
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-docs
+          path: ${{ runner.temp }}/docs
+          run-id: ${{ inputs.linux-run }}
+          github-token: ${{ github.token }}
+
+      - name: Make the archives
+        env:
+          COMMIT: ${{ steps.runs.outputs.commit }}
+        run: |
+          B="$RUNNER_TEMP/builds"
+          ls -l "$B"/*
+          one() { local f=("$@"); [ "${#f[@]}" = 1 ] && [ -f "${f[0]}" ] || { echo "::error::expected one file: $*"; exit 1; }; echo "${f[0]}"; }
+          win64=$(one "$B"/win-x86_64/LegacyOXT-*-win-x86_64-binaries.zip)
+          mac=$(one "$B"/mac-universal/LegacyOXT-*-mac-universal-binaries.tar.xz)
+          runs="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs"
+          python3 tools/oxt/make_runtimes_asset.py --builds --label "$LABEL" --out "$RUNNER_TEMP/assets" \
+            --bin "win-x86_64=$win64" \
+            --bin "linux-x86=$B/linux-x86/LegacyOXT-linux-x86-bin.tar.xz" \
+            --bin "linux-x86_64=$B/linux-x86_64/LegacyOXT-linux-x86_64-bin.tar.xz" \
+            --bin "mac-universal=$mac" \
+            --commit "$COMMIT" \
+            --run "win-x86_64=$runs/$WINDOWS_RUN" \
+            --run "linux-x86,linux-x86_64=$runs/$LINUX_RUN" \
+            --run "mac-universal=$runs/$MACOS_RUN"
+          mv "$RUNNER_TEMP/assets/PROVENANCE.md" "$RUNNER_TEMP/assets/PROVENANCE-legacyoxt-runtimes-$LABEL.md"
+          python3 tools/oxt/make_docs_asset.py --data "$RUNNER_TEMP/docs" --label "$LABEL" --out "$RUNNER_TEMP/assets" \
+            --commit "$COMMIT" --run "$runs/$LINUX_RUN"
+          mv "$RUNNER_TEMP/assets/PROVENANCE.md" "$RUNNER_TEMP/assets/PROVENANCE-legacyoxt-docs-$LABEL.md"
+          ls -l "$RUNNER_TEMP/assets"
+          {
+            echo "### assets-$LABEL"
+            echo
+            echo "From commit \`$COMMIT\` (runs $runs/$WINDOWS_RUN, $runs/$LINUX_RUN and $runs/$MACOS_RUN)."
+            echo "The entries for \`tools/oxt/external-assets.json\`:"
+            echo
+            echo '```json'
+            cat "$RUNNER_TEMP/assets/legacyoxt-runtimes-$LABEL.manifest.json"
+            cat "$RUNNER_TEMP/assets/legacyoxt-docs-$LABEL.manifest.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: assets
+          path: ${{ runner.temp }}/assets/*
+          if-no-files-found: error
+          retention-days: 30
+          # The archives are compressed already
+          compression-level: 0
+
+  publish:
+    name: Publish assets-${{ inputs.label }}
+    needs: assemble
+    if: inputs.publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      LABEL: ${{ inputs.label }}
+      COMMIT: ${{ needs.assemble.outputs.commit }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download the archives
+        uses: actions/download-artifact@v8
+        with:
+          name: assets
+          path: ${{ runner.temp }}/assets
+
+      # The commit must be on main (the compare API says "behind" or
+      # "identical" when main contains it), and the tag must be new
+      - name: Check the commit and the tag
+        run: |
+          fail() { echo "::error::$*"; exit 1; }
+          status=$(gh api "repos/$GH_REPO/compare/main...$COMMIT" --jq .status) || fail "cannot compare $COMMIT with main"
+          case "$status" in
+            identical|behind) ;;
+            *) fail "commit $COMMIT is not on main ($status); publish assets from main only" ;;
+          esac
+          if gh api "repos/$GH_REPO/git/ref/tags/assets-$LABEL" --silent 2> /dev/null; then
+            fail "the tag assets-$LABEL exists already; published assets are never replaced, so choose a new label"
+          fi
+
+      - name: Create the release and check the uploads
+        run: |
+          fail() { echo "::error::$*"; exit 1; }
+          dir="$RUNNER_TEMP/assets"
+          files=()
+          {
+            echo "External assets that LegacyOXT's packages install, built from commit $COMMIT by LegacyOXT's CI."
+            echo "Not a LegacyOXT release by itself: tools/oxt/external-assets.json pins them, and the"
+            echo "PROVENANCE files list every file they hold."
+            echo
+          } > "$RUNNER_TEMP/notes.md"
+          for name in "legacyoxt-runtimes-$LABEL" "legacyoxt-docs-$LABEL"; do
+            sha=$(sha256sum "$dir/$name.zip" | cut -d' ' -f1)
+            size=$(stat -c %s "$dir/$name.zip")
+            [ "$sha" = "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "$dir/$name.manifest.json")" ] ||
+              fail "$name.zip does not match its manifest entry"
+            echo "- \`$name.zip\`: $size bytes, SHA-256 \`$sha\`" >> "$RUNNER_TEMP/notes.md"
+            files+=("$dir/$name.zip" "$dir/PROVENANCE-$name.md")
+          done
+          gh release create "assets-$LABEL" "${files[@]}" --target "$COMMIT" --prerelease --latest=false \
+            --title "Assets $LABEL" --notes-file "$RUNNER_TEMP/notes.md"
+          for name in "legacyoxt-runtimes-$LABEL" "legacyoxt-docs-$LABEL"; do
+            sha=$(sha256sum "$dir/$name.zip" | cut -d' ' -f1)
+            size=$(stat -c %s "$dir/$name.zip")
+            uploaded=$(gh api "repos/$GH_REPO/releases/tags/assets-$LABEL" \
+              --jq ".assets[] | select(.name == \"$name.zip\") | [.size, .state, (.digest // \"\")] | @tsv")
+            echo "uploaded $name.zip: $uploaded"
+            IFS=$'\t' read -r usize ustate udigest <<< "$uploaded"
+            [ "$usize" = "$size" ] && [ "$ustate" = uploaded ] || fail "the upload of $name.zip is $usize bytes, $ustate"
+            [ -z "$udigest" ] || [ "$udigest" = "sha256:$sha" ] || fail "the upload's digest is $udigest, not sha256:$sha"
+          done
+          echo "Published assets-$LABEL: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/assets-$LABEL" >> "$GITHUB_STEP_SUMMARY"

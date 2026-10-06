@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
-"""Write the release notes of a release of OpenXTalk Lite 1.15 built from
-this repository, for Windows, macOS and Linux (Markdown, for gh release
-create --notes-file).
+"""Write the release notes of a LegacyOXT release (LiveCode Community built
+from LiveCode's source in this repository), for Windows, macOS and Linux
+(Markdown, for gh release create --notes-file).
 
   python3 tools/ci/release_notes.py --version V [--tag TAG] [--commit SHA]
       (--dir DIR | --files NAME... | --files-from FILE)
@@ -29,16 +29,12 @@ line, give the names alone, to try the notes without the files). They
 must be exactly the files release_assets.py expects for --version, so the
 notes never name a file that the release lacks, nor leave one out.
 
-The notes say what the release is (Tom Perry's OpenXTalk Lite 1.15 source,
-built and tested here), which file to download for each platform and what
-it needs, how to check a download, and where the parts come from. GitHub's
+The notes say what the release is (LiveCode Community's source, built and
+tested here), which file to download for each platform and what it needs,
+how to check a download, and where the parts come from. GitHub's
 generated list of changes since the previous release follows when
 release.yml creates the release. --summary appends the notes to the
-GitHub Actions job summary.
-
-Adapted from OXT-Beyond's release_notes.py, without its update-check
-excerpt (OpenXTalk Lite 1.15's IDE has no update check for this
-repository) and its xTalk Suite extensions.
+GitHub Actions job summary. Adapted from OpenXTalk-Lite-1.15's.
 
 Only the Python 3 standard library is used.
 """
@@ -49,7 +45,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), 'tools', 'oxt'))
 import release_assets  # noqa: E402
+import package  # noqa: E402
 
 # The minimum systems the builds check (build-linux.yml: glibc 2.31 by
 # check_elf_floor.py; build-macos.yml: 10.13 and 11.0 by
@@ -59,9 +57,9 @@ MAC_MIN = 'macOS 11 or later, or 10.13 or later on Intel'
 LINUX_MIN = 'Linux x86-64 (glibc 2.31 or later)'
 
 INTRO = '''\
-OpenXTalk Lite {version} for Windows, macOS and Linux, built from Tom Perry's source{tag_text}.
+LiveCode Community {version} (LiveCode's last development build, "{title}") for Windows, macOS and Linux, built from LiveCode's source by LegacyOXT{tag_text}.
 
-This is OpenXTalk Lite {version} as Tom Perry left it (the IDE and his 9.7.1-OXT engine), compiled and tested by this repository's CI. Nothing in it was fixed or improved: it differs from his source only where current compilers and systems need it to build, and where his own shipped 1.15 release differs from his source, it follows his release; see "About this release" below.
+This is LiveCode Community as LiveCode Ltd left it when its open source edition ended: the engine and IDE of livecode/livecode `develop` (commit `4606a10ea`, 2021-07-26), compiled, packaged and tested by this repository's CI. Nothing in it was fixed or improved: it differs from LiveCode's source only where today's compilers and systems need it to build; see "About this release" below. LegacyOXT is not affiliated with or endorsed by LiveCode Ltd.
 
 Download from the release page, under Assets:
 - {windows_min}: {root}-win-x86_64-setup.exe
@@ -74,8 +72,8 @@ BODY = '''\
 
 Needs 64-bit Windows 10 or later.
 
-- `{root}-win-x86_64-setup.exe`: the installer. It installs for all users or only for you, and adds a Start menu shortcut and the .oxtstack and .oxtscript file types.
-- `{root}-win-x86_64-portable.zip`: the same program folder without an installer, laid out as OpenXTalk Lite 1.15's own Windows download. Extract it and run `OpenXTalk-Lite.exe`.
+- `{root}-win-x86_64-setup.exe`: the installer. It installs for all users or only for you, as LiveCode's installer did: the folder "{title}" (under `LegacyOXT`), the program `{exe}`, a Start menu shortcut and a desktop shortcut, and no file types.
+- `{root}-win-x86_64-portable.zip`: the same program folder without an installer. Extract it and run `{exe}`.
 - `{root}-win-x86_64-binaries.zip`: the engine, externals and tools as built (`win-x86_64-bin`), without debug symbols, plus the licence.
 - `{root}-win-x86_64-symbols.zip`: debug symbols (`*.pdb`) for the binaries.
 
@@ -83,30 +81,32 @@ The executables are not code-signed, so Windows SmartScreen may warn when they a
 
 ## macOS (Apple Silicon and Intel)
 
-One universal app, `OpenXTalk-Lite.app`, with Tom Perry's macOS engine work (his macOS dark mode, AppKit drawing, macSetIcon and the macOS ARM standalone builder). It needs macOS 11 Big Sur or later on Apple Silicon, or macOS 10.13 High Sierra or later on an Intel Mac.
+One universal app, `{app}`, LiveCode's app as built (its name, bundle identifier, icons and Info.plist), for Apple Silicon and Intel (LiveCode built it for Intel only). It needs macOS 11 Big Sur or later on Apple Silicon, or macOS 10.13 High Sierra or later on an Intel Mac.
 
-- `{root}-mac-universal.dmg`: the disk image. Open it and drag OpenXTalk-Lite onto the Applications folder next to it.
+- `{root}-mac-universal.dmg`: the disk image. Open it and drag the app onto the Applications folder next to it.
 - `{root}-mac-universal.zip`: the same app, for scripted installs (`ditto -x -k {root}-mac-universal.zip /Applications`).
 - `{root}-mac-universal-binaries.tar.xz`: the build output (`Release/`, the Apple Silicon and Intel builds joined with lipo), signed ad hoc, without debug symbols and the build's own tools, plus the licence.
 - `{root}-mac-universal-symbols.zip`: debug symbols (`.dSYM` bundles) for the binaries.
 
 **Opening it for the first time.** The app is signed ad hoc: it is not signed with an Apple Developer ID and not notarized by Apple, so macOS does not open a downloaded copy until you allow it. You do this once. On macOS 15 Sequoia and later:
 
-1. Double-click OpenXTalk-Lite. macOS says that it was not opened; click **Done** (not *Move to Trash*).
+1. Double-click the app. macOS says that it was not opened; click **Done** (not *Move to Trash*).
 2. Open **System Settings > Privacy & Security** and scroll down to *Security*. Next to the message that the app was blocked to protect your Mac, click **Open Anyway**.
 3. Confirm with **Open Anyway** and your password (or Touch ID).
 
 On macOS 13 and 14, Control-click the app in Finder, choose *Open* and then *Open* again; on macOS 12 and earlier, the button is in *System Preferences > Security & Privacy > General*. Or, in Terminal, remove the quarantine flag that the browser set on the download:
 
 ```sh
-xattr -dr com.apple.quarantine /Applications/OpenXTalk-Lite.app
+xattr -dr com.apple.quarantine "/Applications/{app}"
 ```
+
+The app keeps LiveCode's bundle identifier (`com.runrev.livecode`), so it shares its preferences with any LiveCode installed on the same Mac.
 
 ## Linux (x86-64)
 
-Needs 64-bit x86 Linux with glibc 2.31 or later (Ubuntu 20.04, Debian 11, Fedora 32 or later) and an X11 desktop (on Wayland it runs through XWayland), with GTK 2: on Debian and Ubuntu the package `libgtk2.0-0` (`libgtk2.0-0t64` on Ubuntu 24.04 and Debian 13), on Fedora `gtk2`. The launcher names any library that is missing, with its package. The browser widget and revBrowser also need NSS, ALSA and a few more X11 libraries; without them the launcher turns the browser off. This build is of his Windows and macOS source with OXT-Beyond's Linux port of the build files; his own Linux 1.15 source is not in it yet.
+Needs 64-bit x86 Linux with glibc 2.31 or later (Ubuntu 20.04, Debian 11, Fedora 32 or later) and an X11 desktop (on Wayland it runs through XWayland), with GTK 2: on Debian and Ubuntu the package `libgtk2.0-0` (`libgtk2.0-0t64` on Ubuntu 24.04 and Debian 13), on Fedora `gtk2`. The browser widget and revBrowser also need NSS, ALSA and a few more X11 libraries.
 
-- `{root}-linux-x86_64.tar.xz`: the program folder `{root}`. Extract it onto a Linux file system (not FAT, exFAT or a Windows drive) and run `./openxtalk-lite` in it, or run `./install.sh` to install it for yourself: under `~/.local/share/openxtalk-lite`, with a menu entry, icons, the .oxtstack and .oxtscript file types and the command `openxtalk-lite`, without administrator rights.
+- `{root}-linux-x86_64.tar.xz`: the program folder `{root}`. Extract it onto a Linux file system (not FAT, exFAT or a Windows drive) and run `./{linux_engine}` in it (in quotes: the name has a space), or run `./install.sh` to install it for yourself where LiveCode's installer did (`~/.runrev/components/{linux_folder}`), with LiveCode's menu entry and icon, without administrator rights; `uninstall.sh` in the installed folder removes it.
 - `{root}-linux-x86_64-binaries.tar.xz`: the engine, externals and tools as built (`linux-x86_64-bin`), without debug symbols and the build's own tools, plus the licence.
 - `{root}-linux-x86_64-symbols.tar.xz`: debug symbols (`.dbg` files) for the binaries.
 
@@ -124,13 +124,12 @@ Needs 64-bit x86 Linux with glibc 2.31 or later (Ubuntu 20.04, Debian 11, Fedora
 
 Made by the "Release" workflow (`.github/workflows/release.yml`){commit}, which builds and tests all three platforms and publishes the release only when every package has passed.
 
-- **The code** is Tom Perry's OpenXTalk Lite 1.15: the OpenXTalk Lite IDE 1.15 and his 9.7.1-OXT engine work, his Windows and macOS working copies merged into one tree (the tag `tom-perry-1.15-merged`), on LiveCode Community 9.7 develop. The commits after it change only what is needed to build it on current compilers and systems, follow his shipped release where it differs from his source (the regular expressions of his Windows engine follow the caseSensitive, as in his macOS tree), and add the CI, tests and packaging. `CHANGES-FROM-TOM.md` lists every difference from his source and why, and the "Pristine guard" workflow checks that the list is complete.
-- **The tests** are known to fail in places: `tools/ci/*-baseline*.txt` records each failure of Tom Perry's code, which is kept as it is.
-- **From his release:** the Windows package also has his `Ext` folder (the mergJSON, mergMarkdown, blur and mergMicrophone externals his IDE loads) and his `OpenXTalk-Lite.exe` icon and version information, which no source tree of his has (`Installer/openxtalk-lite/from-tom-release`). Every package has his `.buildnumber`.
-- **The standalone runtimes** for the platforms other than each package's own (Windows x86, Linux and Android) are OpenXTalk Lite 1.15's own, unchanged (the asset `oxt-runtimes-1.15`).
+- **The code** is LiveCode Community 9.7.0-dp-1: livecode/livecode `develop` at `4606a10ea` with its `ide` and `thirdparty` submodules (the tag `livecode-9.7.0-dp-1`). The commits after it change only what is needed to build it on current compilers and systems (Visual Studio 2022, current Xcode, Apple Silicon, current Linux) and add the CI, tests and packaging. `CHANGES-FROM-LIVECODE.md` lists every difference from LiveCode's source and why, and the "Pristine guard" workflow checks that the list is complete.
+- **The packages** follow LiveCode's installers (`Installer/package.txt`): the same layout and program names, LiveCode's mergExt `Ext` folder (byte for byte as LiveCode 9.6.3's installer has it), the repository's guides, and the Dictionary data written by LiveCode's own docs builder. Every package has the standalone runtimes for Windows x86-64, Linux x86 and x86-64 and macOS; LiveCode's 32-bit Windows and Android runtimes are not built. LiveCode's release notes and user guide PDFs are not made.
+- **The tests** are LiveCode's engine test suites; they fail in places, and `tools/ci/*-baseline*.txt` records each failure of LiveCode's code, which is kept as it is.
 - **The prebuilt libraries** are LiveCode's own on Windows (OpenSSL 1.1.1g, curl 7.51.0, ICU 58.2, CEF 74), and built from source with the same versions on macOS and Linux (OpenSSL 1.1.1w there: 1.1.1g cannot be linked on arm64).
 
-OpenXTalk Lite was started by Terry Little and developed by Tom Perry with contributions from the OpenXTalk community. It is based on LiveCode Community and licensed under the GNU GPL version 3 (see `LICENSE` in each package).
+LiveCode Community is by LiveCode Ltd and its contributors, under the GNU GPL version 3 (see `License Agreement.txt` in each package). "LiveCode" is a trademark of LiveCode Ltd, used here only to say what the software is.
 '''
 
 
@@ -142,6 +141,11 @@ def fill(template, version, commit, tag):
     return template.format(
         version=version,
         root=release_assets.package_root(version),
+        title=package.LIVECODE_NAME + ' ' + package.readable_version(version),
+        app=package.LIVECODE_NAME + ' ' + package.readable_version(version) + '.app',
+        exe=package.LIVECODE_NAME + '.exe',
+        linux_engine=package.LIVECODE_NAME + '.x86_64',
+        linux_folder='livecodecommunity-%s.x86_64' % version,
         tag_text=' (release %s)' % tag if tag else '',
         windows_min=WINDOWS_MIN, mac_min=MAC_MIN, linux_min=LINUX_MIN,
         commit=' from commit %s' % commit if commit else '')
@@ -165,7 +169,7 @@ def check_files(version, names):
 
 def notes(version, names, commit=None, tag=None):
     if not release_assets.VERSION_RE.match(version):
-        raise NotesError('%r is not a version such as 1.15' % version)
+        raise NotesError('%r is not a version such as 9.7.0-dp-1' % version)
     check_files(version, names)
     body = fill(BODY, version, commit, tag)
     for name in release_assets.release_files(version):
@@ -187,7 +191,7 @@ def read_names(args):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--version', required=True, help='product version (ide/.version)')
+    ap.add_argument('--version', required=True, help='product version (BUILD_SHORT_VERSION)')
     ap.add_argument('--tag', help='the release tag (v<version>-r<n>)')
     ap.add_argument('--commit', help='the commit the release is made from')
     src = ap.add_mutually_exclusive_group(required=True)

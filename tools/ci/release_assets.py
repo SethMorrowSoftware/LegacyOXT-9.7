@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
-"""Put the files of one OpenXTalk-Lite release together from the packages of
+"""Put the files of one LegacyOXT release together from the packages of
 the three platforms, and check them before and after they are uploaded.
 
   python3 tools/ci/release_assets.py assemble --version V --artifacts DIR --out DIR
@@ -26,9 +26,9 @@ The release workflow (.github/workflows/release.yml) downloads the CI
 artifacts that hold the packages, each into a folder of its own named
 after it, as actions/download-artifact writes a named artifact:
 
-  OpenXTalk-Lite-win-x86_64     build-windows.yml, job "Build win-x86_64"
-  OpenXTalk-Lite-mac-universal  build-macos.yml, job "Package mac-universal"
-  OpenXTalk-Lite-linux-x86_64   build-linux.yml, job "Package linux-x86_64"
+  LegacyOXT-win-x86_64     build-windows.yml, job "Build win-x86_64"
+  LegacyOXT-mac-universal  build-macos.yml, job "Package mac-universal"
+  LegacyOXT-linux-x86_64   build-linux.yml, job "Package linux-x86_64"
 
 assemble checks each artifact folder of --artifacts:
 
@@ -36,7 +36,7 @@ assemble checks each artifact folder of --artifacts:
     file matches its line (a file that changed or went missing between
     packaging and the release fails here, not on a user's computer);
   - it holds exactly the files ASSETS names for it, where <root> is
-    OpenXTalk-Lite-<version>: none missing, and none that the table does not
+    LegacyOXT-<version>: none missing, and none that the table does not
     name (a new kind of file is added to the table on purpose, together
     with its description in tools/ci/release_notes.py);
 
@@ -74,29 +74,29 @@ import re
 import shutil
 import sys
 
-PRODUCT = 'OpenXTalk-Lite'
+PRODUCT = 'LegacyOXT'
 SUMS = 'SHA256SUMS'
 
-# The version rule of ide/.version, as the build workflows check it
+# The version rule of BUILD_SHORT_VERSION, as the build workflows check it
 VERSION_RE = re.compile(r'^[0-9]+(\.[0-9]+){1,3}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$')
 
 # What a release holds, per CI artifact:
 # (artifact, platform, the files after "<root>" in their names). Linux arm64
 # is built but not packaged, so it has no artifact here.
 ASSETS = (
-    ('OpenXTalk-Lite-win-x86_64', 'win-x86_64', (
+    ('LegacyOXT-win-x86_64', 'win-x86_64', (
         '-win-x86_64-setup.exe',
         '-win-x86_64-portable.zip',
         '-win-x86_64-binaries.zip',
         '-win-x86_64-symbols.zip',
     )),
-    ('OpenXTalk-Lite-mac-universal', 'mac-universal', (
+    ('LegacyOXT-mac-universal', 'mac-universal', (
         '-mac-universal.dmg',
         '-mac-universal.zip',
         '-mac-universal-binaries.tar.xz',
         '-mac-universal-symbols.zip',
     )),
-    ('OpenXTalk-Lite-linux-x86_64', 'linux-x86_64', (
+    ('LegacyOXT-linux-x86_64', 'linux-x86_64', (
         '-linux-x86_64.tar.xz',
         '-linux-x86_64-binaries.tar.xz',
         '-linux-x86_64-symbols.tar.xz',
@@ -321,7 +321,7 @@ def main(argv=None):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='command')
     a = sub.add_parser('assemble', help='check the artifacts and write the release folder')
-    a.add_argument('--version', required=True, help='product version (ide/.version)')
+    a.add_argument('--version', required=True, help='product version (BUILD_SHORT_VERSION)')
     a.add_argument('--artifacts', required=True, help='folder with one folder per downloaded artifact')
     a.add_argument('--out', required=True, help='release folder to write (new or empty)')
     c = sub.add_parser('check-uploaded', help='compare the release folder with the uploaded assets')
