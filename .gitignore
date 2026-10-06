@@ -47,14 +47,12 @@ util/perfect/perfect.linux-*
 # it's better to unpack these files and commit the raw source
 # git has its own built in compression methods
 *.7z
-*.bz2
 *.dmg
 *.gz
 *.iso
 *.jar
 *.rar
 *.tar
-*.xz
 *.zip
 
 # Logs and databases #
@@ -86,8 +84,6 @@ Thumbs.db
 *.xcworkspacedata
 xcuserdata/
 *.vcproj.*.user
-*.vcxproj.user
-.vs/
 *.ncb
 *.suo
 *.mode1v3
@@ -130,8 +126,6 @@ prebuilt/build
 prebuilt/packaged
 prebuilt/fetched
 prebuilt/unpacked
-# External assets downloaded by tools/oxt/package.py (tools/oxt/external-assets.json)
-prebuilt/fetched-assets/
 
 # Stamp files and generated C files
 ###################################
@@ -144,14 +138,10 @@ LiveCodeNotes-*
 LiveCodeUpdates-*
 LiveCodeUserGuide-*
 
-# Release packages (tools/ci/package-windows.ps1) #
-###################################################
-/dist/
-
-# Python 3 bytecode #
-#####################
+# Build and CI leftovers #
+##########################
+*.bz2
+*.xz
+*.vcxproj.user
+.vs/
 __pycache__/
-
-# Tom Perry's release files (Installer/openxtalk-lite/from-tom-release) are
-# kept, binaries included
-!Installer/openxtalk-lite/from-tom-release/**
