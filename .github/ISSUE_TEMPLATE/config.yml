@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bugs and features of OpenXTalk Lite
+    url: https://github.com/SethMorrowSoftware/OpenXTalk-Beyond/issues
+    about: This repository keeps Tom Perry's OpenXTalk Lite 1.15 as it is, so its bugs are recorded here (in the test baselines), not fixed. Fixes and new features belong in OXT-Beyond, which continues the work.
+  - name: OpenXTalk forums
+    url: https://openxtalk.org/forum/
+    about: Questions and general discussion about xTalk programming and the OpenXTalk projects.

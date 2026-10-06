@@ -203,10 +203,35 @@ function TestBuildErrorMap pErrorFile, pErrorPrefix, pZerothError
    local tSource
    put textDecode(url("binfile:" & tSourceFile), "utf-8") into tSource
    
+   -- The file may hold both of Tom Perry's versions (CHANGES-FROM-TOM.md,
+   -- section 1): keep the lines of this platform's version, as the
+   -- compiler and util/encode_errors.pl do
+   local tMacOS, tRegion, tMarker
+   put the platform is "MacOS" into tMacOS
+
    local tErrorMap, tCode
    repeat for each line tLine in tSource
+      put tLine into tMarker
+      if the last char of tMarker is numToCodepoint(13) then
+         delete the last char of tMarker
+      end if
+      switch tMarker
+         case "#if defined(_MACOSX) /* OXT-TOM: macOS */"
+            put "mac" into tRegion
+            next repeat
+         case "#if !defined(_MACOSX) /* OXT-TOM: Windows */"
+         case "#else /* OXT-TOM: Windows */"
+            put "win" into tRegion
+            next repeat
+         case "#endif /* OXT-TOM */"
+            put empty into tRegion
+            next repeat
+      end switch
+      if tRegion is "mac" and not tMacOS then next repeat
+      if tRegion is "win" and tMacOS then next repeat
+
       if tLine is empty then next repeat
-      if word 1 of tLine begins with pErrorPrefix & "_" & pZerothError then 
+      if word 1 of tLine begins with pErrorPrefix & "_" & pZerothError then
          next repeat
       end if
       
@@ -228,14 +253,14 @@ function TestBuildErrorMap pErrorFile, pErrorPrefix, pZerothError
                      && tCode && "change to" && pErrorPrefix & "_UNUSED_" & tCode
             end if
          end if
-         if tErrorMap[tCode] is not empty then
-            throw "duplicate error code" && tCode && "found for" && tError && \
-               "change to" && the number of elements of tErrorMap + 1
-         end if
-         if tCode - 1 is not the number of elements of tErrorMap then
-            throw "incorrect error code" && tCode && "for" && tError && \
-               "change to" && the number of elements of tErrorMap + 1
-         end if
+         -- The engine numbers its errors by their place in the list
+         -- (util/encode_errors.pl), not by the number in the comment, so
+         -- the map does too. In Tom Perry's macOS executionerrors.h the
+         -- comments from EE_MARK_BADSTRING on are one below their place
+         -- (he added macSetIcon's error as 0297 and renumbered only the
+         -- next comment): checking them, as LiveCode's library did, failed
+         -- every test that checks an error there. Elsewhere the two agree.
+         put format("%04d", the number of elements of tErrorMap + 1) into tCode
 
          put tError into tErrorMap[tCode]
          put empty into tCode
@@ -446,6 +471,8 @@ on TestLoadExternal pExternal
       put "bundle" into tExtension
    else if the platform is "linux" then
       put "so" into tExtension
+   else if the platform is "Win32" then
+      put "dll" into tExtension
    end if
 
    put TestGetBinariesPath() into tBinariesPath
@@ -619,7 +646,9 @@ end TestRepeat
 command TestRunStack pOptions, pStackFilePath, pArgs
 	local tEnginePath
 	set the itemDelimiter to ":"
-	put item 2 of the address into tEnginePath
+	-- The address is <host>:<engine path>; on Windows the path has a colon
+	-- after its drive letter
+	put item 2 to -1 of the address into tEnginePath
 
 	local tCommand
 	put format("\"%s\" %s \"%s\" %s", tEnginePath, pOptions, pStackFilePath, pArgs) into tCommand
@@ -748,7 +777,45 @@ command TestEnsureJVM
          put tPath into $JAVA_HOME
       end if
    end if
+
+   -- Without a Java runtime the engine can load, the test is skipped
+   switch the platform
+      case "MacOS"
+         -- the engine loads Java from JAVA_HOME
+         if $JAVA_HOME is empty or there is not a folder $JAVA_HOME then
+            throw "SKIP no Java runtime found (JAVA_HOME is empty or names no folder)"
+         end if
+         break
+      case "Linux"
+         -- the engine loads libjvm.so by its name alone, without looking in
+         -- JAVA_HOME
+         if not __LinkerFindsLibJVM() then
+            throw "SKIP no Java runtime the engine can load: on Linux it needs libjvm.so in a folder of LD_LIBRARY_PATH"
+         end if
+         break
+   end switch
 end TestEnsureJVM
+
+-- Whether the dynamic linker finds libjvm.so by its name: in a folder of
+-- LD_LIBRARY_PATH (as it was when the engine started) or in its cache,
+-- which also has the libraries of the system's own library folders
+private function __LinkerFindsLibJVM
+   local tFolders
+   put $LD_LIBRARY_PATH into tFolders
+   replace ":" with return in tFolders
+   repeat for each line tFolder in tFolders
+      if tFolder is not empty and there is a file (tFolder & "/libjvm.so") then
+         return true
+      end if
+   end repeat
+   -- ldconfig -p lists the cache, a library a line: "libjvm.so (...) => path"
+   repeat for each line tLine in shell("/sbin/ldconfig -p")
+      if word 1 of tLine is "libjvm.so" then
+         return true
+      end if
+   end repeat
+   return false
+end __LinkerFindsLibJVM
 
 command TestPropRoundTrip pObjectType, pProperty, pValues
    local tStack

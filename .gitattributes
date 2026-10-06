@@ -34,9 +34,14 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
+# The Linux package's launcher (a sh script without an extension), install
+# scripts, desktop entry, MIME types and library list
+Installer/linux/** text eol=lf
+
 # These files are processed by cygwin+bash so make sure they don't end with CRLF
 prebuilt/versions/* text eol=lf
 prebuilt/SHA256SUMS text eol=lf
+prebuilt/cef-sha1sums text eol=lf
 
 # Denote all files that are truly binary and should not be modified.
 *.png binary
@@ -44,4 +49,22 @@ prebuilt/SHA256SUMS text eol=lf
 *.rev binary
 *.livecode binary
 
+# File types of the OpenXTalk Lite / OXT-Beyond IDE (ide/). Stacks and
+# assets must be stored byte for byte; scripts and snippets are text.
+*.oxtstack binary
+*.oxtscript text
+*.snippet text
+*.ico binary
+*.gif binary
+*.pdf binary
+*.ttf binary
+*.otf binary
+*.sqlite binary
+*.mp4 binary
+*.zip binary
 
+
+
+# Files of Tom Perry's release, kept byte for byte (see the README.md there)
+Installer/openxtalk-lite/from-tom-release/** -text
+Installer/openxtalk-lite/from-tom-release/README.md text

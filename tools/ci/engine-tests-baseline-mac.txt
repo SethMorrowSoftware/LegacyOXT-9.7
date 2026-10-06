@@ -1,0 +1,41 @@
+# Engine test suite (tools/ci/run_engine_tests.py): tests known to fail on
+# macOS with Tom Perry's OpenXTalk Lite 1.15 code that are not in
+# engine-tests-baseline.txt (the failures on every platform). One
+# "<suite>: <test>" per line; "? " before it: fails only sometimes; text
+# after " #" is a comment. See engine-tests-baseline.txt.
+
+# Each is a bug of the LiveCode 9.7 code under OpenXTalk Lite 1.15 that
+# OXT-Beyond fixed, with the OXT-Beyond commit; most were in OXT-Beyond's
+# own macOS baseline before its fix. Seen on the macOS arm64 runner.
+
+# The engine's Java support ("Could not initialise Java Runtime
+# Environment"): it loads $JAVA_HOME/jre/lib/jli/libjli.dylib, where only
+# Java 8 has it (Java 9 and later: $JAVA_HOME/lib), and the runners have
+# Java 11 to 21 (OXT-Beyond 70461adf6)
+lcs: extensions/libraries/javatest/tests/java: TestLoadJar
+lcb: lcb/stdlib/java: TestBindingStringObjectTypeInMiddle
+lcb: lcb/stdlib/java: TestCallInstanceMethod
+lcb: lcb/stdlib/java: TestCallStaticMethod
+lcb: lcb/stdlib/java: TestCreateCurrencyWithCode
+lcb: lcb/stdlib/java: TestCreateJObject
+lcb: lcb/stdlib/java: TestCreateJString
+lcb: lcb/stdlib/java: TestDefaultLocaleDisplayName
+lcb: lcb/stdlib/java: TestGetConstant
+lcb: lcb/stdlib/java: TestNativeTypeAfterObjectType
+lcb: lcb/stdlib/java: TestNullJObjectParam
+lcb: lcb/stdlib/java: TestNullJObjectReturn
+lcb: lcb/stdlib/java: TestRoundTripJByteArray
+lcb: lcb/stdlib/java: TestRoundTripJString
+lcb: lcb/vm/foreign-binding: TestForeignBinding_Java
+
+# Without a user interface a "wait for messages" sleeps until the next
+# timer message: the socket thread's wake-up pipe is not polled on macOS,
+# so libURL's request lasts until its 60-second socket timeout
+# (OXT-Beyond b359fc087)
+lcs: liburl/status_codes: TestStatusCodes
+
+# Text compares by the Mac Roman code of a char the engine holds as a
+# native one, and by codepoint otherwise, so sort and < depend on how a
+# string was made (OXT-Beyond db44e1c79, which added these tests)
+lcs: core/strings/sort: TestSortTextByCodepoint
+lcs: core/strings/sort: TestCompareTextByCodepoint

@@ -1,0 +1,474 @@
+# Builds OpenXTalk Lite 1.15 (Tom Perry's source, his Windows and macOS
+# working copies merged at the tag tom-perry-1.15-merged, with the build
+# changes after it; CHANGES-FROM-TOM.md lists them) for macOS on GitHub-hosted runners: Apple
+# Silicon (arm64) on macos-15 and Intel (x86_64) on macos-15-intel, each
+# natively, as an artifact of its own ("Build mac-<arch>"). Adapted from
+# OXT-Beyond's workflow of the same name; see README.md. The engine is Tom
+# Perry's macOS engine work (his Apple Silicon working copy, which holds his
+# Intel work, merged with his Windows one), built with gyp and the
+# installed Xcode instead of his hand-edited Xcode projects, for one
+# universal app. Then
+#
+#   "Package mac-universal" (macos-15) joins the two builds into one
+#   universal build output with lipo (tools/ci/merge_universal.py, dSYM
+#   bundles included), stages OpenXTalk-Lite.app from it with the external
+#   asset oxt-runtimes-1.15 (tools/oxt/package.py --platform mac-universal),
+#   signs it ad hoc from the inside out (tools/ci/sign_mac_app.py), checks
+#   that every Mach-O file of macOS code in it holds arm64 and x86_64, and
+#   writes
+#
+#     OpenXTalk-Lite-<ver>-mac-universal.dmg              the app and a link
+#                                                         to /Applications
+#     OpenXTalk-Lite-<ver>-mac-universal.zip              the app (ditto)
+#     OpenXTalk-Lite-<ver>-mac-universal-binaries.tar.xz  the merged build
+#                                                         output, signed ad
+#                                                         hoc, without the
+#                                                         build's own tools
+#                                                         (GENTLE's among
+#                                                         them)
+#     OpenXTalk-Lite-<ver>-mac-universal-symbols.zip      the universal dSYMs
+#     SHA256SUMS
+#
+#   (tools/oxt/package_dist.py --dmg) as the artifact
+#   OpenXTalk-Lite-mac-universal;
+#
+#   "Test mac-universal (<arch>)" (macos-15 and macos-15-intel, so that
+#   each slice runs) installs the app from the disk image into a neutral
+#   folder and checks its signature, then runs the headless smoke test, the
+#   extension library check, the IDE compile check, the standalone check,
+#   the browser and player check, the zip and an IDE start.
+#
+# Each build job also runs the IDE compile check on the checkout's IDE and
+# the engine test suites of tests/. A failure that is not in the baselines
+# (tools/ci/*-baseline*.txt, which record how Tom Perry's code behaves)
+# fails the job. Every check after the build, the install or the packaging
+# runs even when an earlier check failed, so that a run reports all of
+# them.
+#
+# Signing is ad hoc (no Developer ID, no notarization): Gatekeeper blocks
+# the app until the user allows it.
+#
+# Oldest supported macOS: 11 on Apple Silicon, 10.13 on Intel
+# (config/mac.gypi), checked for every Mach-O file
+# (tools/ci/check_macho_floor.py).
+#
+# Toolchain: Xcode 16.4 and its macOS SDK, Python 2.7 (built with pyenv and
+# cached; gyp and config.py need it) and the runner's JDK (headers only).
+#
+# Prebuilt libraries: OpenSSL (1.1.1w) and ICU (58.2), and the Thirdparty
+# set from the vendored thirdparty/, are built from source on a cache miss
+# and kept in the Actions cache, as in build-linux.yml.
+#
+# Version: <ver> is BUILD_SHORT_VERSION in the file version, LiveCode's
+# 9.7.0-dp-1. Releases are
+# tagged v<ver>-r<n>, as in build-linux.yml. OXT_BUILD_NUMBER is the input
+# build-number when release.yml gives one, else the UTC time at which each
+# job starts, as YYYYMMDDHHMM.
+#
+# Releases: .github/workflows/release.yml calls this workflow (workflow_call)
+# and its publishing job needs every job of it, the tests included.
+
+name: Build (macOS)
+
+on:
+  # No tags here: release.yml builds them (see the header)
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      build-number:
+        description: >-
+          OXT_BUILD_NUMBER for every job of the run (digits; release.yml
+          gives all three platforms the same); empty for the UTC time at
+          which each job starts
+        type: string
+        required: false
+        default: ''
+      release:
+        description: >-
+          Build as for a release: never leave out the external assets
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # A called release build (release.yml) gets a group of its own, the
+  # caller's run id: in the caller's run github.ref is the tag or the
+  # branch of a dry run, and pushes to that branch must neither cancel the
+  # release build nor wait for it (see build-windows.yml)
+  group: build-macos-${{ inputs.release && format('release-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build mac-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 350
+    env:
+      ARCH: ${{ matrix.arch }}
+      TARGET_ARCH: ${{ matrix.arch }}
+      XCODE_TARGET_SDK: macosx
+      XCODE_HOST_SDK: macosx
+      PREBUILT_MAC_ARCHS: ${{ matrix.arch }}
+      MODE: release
+      BUILDTYPE: Release
+      XCODE_VERSION: '16.4'
+      PYTHON2_VERSION: 2.7.18
+      # Report every compile error in one run instead of stopping at the first
+      XCODEBUILD_FLAGS: -IDEBuildingContinueBuildingAfterErrors=YES
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # No step pushes or fetches, so the token need not stay in .git/config
+          persist-credentials: false
+
+      # The version gate of build-windows.yml: a tag build fails straight
+      # away when the tag is not "v" followed by BUILD_SHORT_VERSION (the file version), so that no
+      # platform builds (and none publishes) files under another version.
+      # (Called by release.yml, github.ref_type and github.ref_name are the
+      # caller's: the tag of the release.) One build number for every file
+      # of this job, OXT_BUILD_NUMBER: release.yml's input, else the UTC
+      # time now, as YYYYMMDDHHMM (what tools/oxt/package.py writes into
+      # .buildnumber). Written for the bash 3.2 of macOS too.
+      - name: Read the product version
+        id: product
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          BUILD_NUMBER_INPUT: ${{ inputs.build-number }}
+        run: |
+          version=$(sed -n 's/^BUILD_SHORT_VERSION = *//p' version | tr -d '\r')
+          # Trim white space at both ends, like the Trim() of the Windows step
+          version="${version#"${version%%[![:space:]]*}"}"
+          version="${version%"${version##*[![:space:]]}"}"
+          re='^[0-9]+(\.[0-9]+){1,3}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$'
+          if ! [[ $version =~ $re ]]; then
+            echo "::error::version (BUILD_SHORT_VERSION) contains '$version'; expected a version such as 0.0.1 or 0.1.0-beta.1"
+            exit 1
+          fi
+          # A release tag is v<version>-r<n>, the nth release built from this
+          # repository ([vV]: the Windows step's -like 'v*' ignores case)
+          if [ "$REF_TYPE" = tag ] && [[ $REF_NAME == [vV]* ]]; then
+            rebuild=${REF_NAME#"v$version-r"}
+            if [ "$rebuild" = "$REF_NAME" ] || ! [[ $rebuild =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::Tag $REF_NAME does not match BUILD_SHORT_VERSION in version ($version); the tags for this version are v$version-r1, v$version-r2 and so on"
+              exit 1
+            fi
+          fi
+          if [ -n "$BUILD_NUMBER_INPUT" ]; then
+            # Digits only, as tools/oxt/package.py requires
+            digits='^[0-9]{1,20}$'
+            if ! [[ $BUILD_NUMBER_INPUT =~ $digits ]]; then
+              echo "::error::The input build-number is '$BUILD_NUMBER_INPUT'; expected digits, such as 202610011200"
+              exit 1
+            fi
+            build_number=$BUILD_NUMBER_INPUT
+          else
+            build_number=$(date -u +%Y%m%d%H%M)
+          fi
+          echo "LiveCode Community $version, build number $build_number"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build-number=$build_number" >> "$GITHUB_OUTPUT"
+          echo "OXT_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          echo "Machine: $(uname -m), processors: $(sysctl -n hw.ncpu)"
+
+      - name: Choose the JDK
+        run: |
+          for v in JAVA_HOME_17_arm64 JAVA_HOME_17_X64 JAVA_HOME_11_arm64 JAVA_HOME_11_X64 JAVA_HOME_21_arm64 JAVA_HOME_21_X64; do
+            if [ -n "${!v}" ] && [ -d "${!v}/include" ]; then
+              echo "JAVA_SDK=${!v}" >> "$GITHUB_ENV"
+              echo "Using $v=${!v}"
+              exit 0
+            fi
+          done
+          echo "::error::no JDK found on the runner"; exit 1
+
+      - name: Restore Python 2.7
+        id: python2-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.pyenv/versions/${{ env.PYTHON2_VERSION }}
+          key: python-${{ env.PYTHON2_VERSION }}-${{ matrix.runner }}-${{ matrix.arch }}-v1
+
+      - name: Build Python 2.7
+        if: steps.python2-cache.outputs.cache-hit != 'true'
+        run: |
+          command -v pyenv >/dev/null || brew install pyenv
+          pyenv install -s "$PYTHON2_VERSION"
+
+      - name: Put Python 2.7 first on PATH
+        run: |
+          py="$HOME/.pyenv/versions/$PYTHON2_VERSION/bin"
+          test -x "$py/python2.7"
+          mkdir -p "$RUNNER_TEMP/py2bin"
+          ln -sf "$py/python2.7" "$RUNNER_TEMP/py2bin/python"
+          ln -sf "$py/python2.7" "$RUNNER_TEMP/py2bin/python2"
+          echo "$RUNNER_TEMP/py2bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/py2bin/python" --version
+
+      - name: Compute the prebuilt libraries cache key
+        id: prebuilt-key
+        run: |
+          scripts=$(cat prebuilt/versions/* prebuilt/scripts/*.sh prebuilt/scripts/*.inc \
+                        prebuilt/build-libraries.sh prebuilt/package-libs.sh \
+                        prebuilt/thirdparty.gyp config/*.gypi | shasum -a 256 | cut -c1-16)
+          thirdparty=$(git rev-parse HEAD:thirdparty | cut -c1-12)
+          echo "key=prebuilt-mac-${ARCH}-xcode${XCODE_VERSION}-${scripts}-${thirdparty}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore prebuilt libraries
+        id: prebuilt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: prebuilt/packaged
+          key: ${{ steps.prebuilt-key.outputs.key }}
+
+      - name: Build OpenSSL and ICU from source
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        working-directory: prebuilt
+        run: |
+          export PREBUILT_MAKE_JOBS="$(sysctl -n hw.ncpu)"
+          PREBUILT_BUILD_LIBS="openssl icu" ./build-libraries.sh mac universal
+          ./package-libs.sh mac universal
+          ls -la packaged
+
+      # thirdparty-prebuilts is a target in the engine's own Xcode project.
+      # Its OpenSSL headers dependency runs fetch-libraries.sh, which must not
+      # look for the Thirdparty tarball that is still being built.
+      - name: Build the Thirdparty libraries from thirdparty/
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        working-directory: prebuilt
+        env:
+          PREBUILT_MAC_LIBS: OpenSSL ICU
+          PREBUILT_SKIP_VERIFY: '1'
+        run: |
+          export PREBUILT_LOCAL_DIR="$PWD/packaged"
+          PREBUILT_BUILD_LIBS=thirdparty ./build-libraries.sh mac universal
+          ./package-libs.sh mac universal
+          ls -la packaged
+          (cd packaged && shasum -a 256 *.tar.bz2)
+
+      - name: Save prebuilt libraries to the cache
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: prebuilt/packaged
+          key: ${{ steps.prebuilt-key.outputs.key }}
+
+      - name: Fetch prebuilt libraries
+        run: |
+          echo "PREBUILT_LOCAL_DIR=$PWD/prebuilt/packaged" >> "$GITHUB_ENV"
+          echo "PREBUILT_SKIP_VERIFY=1" >> "$GITHUB_ENV"
+          cd prebuilt
+          PREBUILT_LOCAL_DIR="$PWD/packaged" PREBUILT_SKIP_VERIFY=1 ./fetch-libraries.sh mac
+          lipo -info lib/mac/*.a
+
+      - name: Configure
+        run: ./config.sh --platform mac
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project build-mac/livecode/livecode.xcodeproj \
+            -configuration Release -target default \
+            -jobs "$(sysctl -n hw.ncpu)" $XCODEBUILD_FLAGS 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log" \
+            | grep -E '(error|warning: unable|\*\* BUILD|Check dependencies|^Build target)' || true
+          grep -q '\*\* BUILD SUCCEEDED \*\*' "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Verify build output
+        id: verify
+        run: |
+          R=_build/mac/Release
+          ls -la "$R" 
+          missing=0
+          for f in LiveCode-Community.app Standalone-Community.app server-community \
+                   revsecurity.dylib revpdfprinter.bundle revxml.bundle revzip.bundle revdb.bundle \
+                   dbsqlite.bundle dbmysql.bundle dbodbc.bundle dbpostgresql.bundle \
+                   lc-compile lc-run packaged_extensions modules; do
+            if [ ! -e "$R/$f" ]; then echo "::error::missing $R/$f"; missing=1; fi
+          done
+          [ "$missing" = 0 ]
+          dev="$R/LiveCode-Community.app/Contents/MacOS/LiveCode-Community"
+          sa="$R/Standalone-Community.app/Contents/MacOS/Standalone-Community"
+          for b in "$dev" "$sa" "$R/server-community" "$R/revsecurity.dylib" "$R/lc-compile"; do
+            echo "== $b: $(lipo -archs "$b")"
+            test "$(lipo -archs "$b")" = "$ARCH"
+            # Nothing may come from Homebrew or other non-system locations.
+            # (otool -L lists a dylib's own install name first: skip it.)
+            own_id=$(otool -D "$b" | sed -n 2p)
+            if otool -L "$b" | tail -n +2 | grep -vF "${own_id:-no-install-name} " \
+                 | grep -vE '^\s+(/usr/lib/|/System/|@rpath/|@executable_path/|@loader_path/)'; then
+              echo "::error::$b links a library outside the system"; exit 1
+            fi
+          done
+          # Every Mach-O file that ships (what the bin tarball holds: not
+          # the static libraries, dSYM bundles and header maps), every
+          # slice of it, must record the deployment target of
+          # config/mac.gypi as its minimum macOS (11.0 arm64, 10.13 x86_64:
+          # the loader refuses a newer minos, so one such file would raise
+          # the minimum of the product) and SDK 11.0 (-platform_version
+          # there; it selects AppKit's behaviour), and hold this
+          # architecture. The one exception is reviphoneproxy, the iOS
+          # simulator helper, and only in the arm64 job: revmobile.gyp
+          # builds it x86_64 only, so there it has no arm64 slice and its
+          # x86_64 slice gets the arm64 build's deployment target, 11.0.
+          # Exactly that is excused (one x86_64 slice, minos 11.0); its SDK
+          # and platform are still checked, and in the x86_64 job it is
+          # checked like every other file. The universal app is to take
+          # the x86_64 build's copy.
+          proxy=
+          if [ "$ARCH" = arm64 ]; then
+            proxy="--only-arch reviphoneproxy=x86_64 --file-minos reviphoneproxy=x86_64:11.0"
+            proxy="$proxy --only-arch reviphone.bundle/Contents/MacOS/reviphoneproxy=x86_64"
+            proxy="$proxy --file-minos reviphone.bundle/Contents/MacOS/reviphoneproxy=x86_64:11.0"
+          fi
+          # $proxy is split into words on purpose (no spaces inside them)
+          python3 tools/ci/check_macho_floor.py "$R" --arch "$ARCH" \
+            --minos arm64=11.0 --minos x86_64=10.13 --sdk 11.0 \
+            --exclude '*.a' --exclude '*.dSYM' --exclude '*.hmap' $proxy
+
+      - name: Smoke test (server engine)
+        run: |
+          printf '<?lc\nput the version && the buildNumber & return\nput the platform && the processor & return\nput sha1Digest("abc") is not empty & return\n?>\n' > "$RUNNER_TEMP/smoke.lc"
+          ./_build/mac/Release/server-community "$RUNNER_TEMP/smoke.lc" | tee "$RUNNER_TEMP/smoke.out"
+          grep -q '^9\.7' "$RUNNER_TEMP/smoke.out"
+
+      # The dSYM bundles that Xcode writes next to every binary (the debug
+      # information, without which crash reports cannot be symbolicated) go
+      # into a tarball of their own; the bin tarball stays without them.
+      # Both hold the folder Release, so extracting the symbols over the
+      # build products puts every dSYM next to its binary, where lldb and
+      # atos look for it (they match it by the binary's UUID).
+      #
+      # Neither holds the tools the build makes to build itself, nor their
+      # dSYM bundles (tools/ci/list_build_tools.py, the rule of the release
+      # archives): gentle-target and reflex-target are GENTLE 97, which may
+      # not be redistributed (THIRD-PARTY-NOTICES.md "GENTLE"), and these
+      # artifacts can be downloaded. Nothing that uses them needs those
+      # tools: both builds leave out the same ones, so the merge in the
+      # package job sees neither, package.py never installs them and
+      # package_dist.py leaves them out, and the IDE compile check below
+      # runs on the build folder itself. (bsdtar reads the exclusions with
+      # -X, and "Release/x" there leaves out Release/x and what is inside
+      # it, not Release/x.dSYM.) The listing at the end is the guard: no
+      # entry named gentle-* or reflex-* may reach either tarball.
+      - name: Package the build products and the debug symbols
+        run: |
+          python3 tools/ci/list_build_tools.py _build/mac/Release > "$RUNNER_TEMP/build-tools.list"
+          echo "Left out (the build's own tools): $(tr '\n' ' ' < "$RUNNER_TEMP/build-tools.list")"
+          tar -C _build/mac -cJf "OpenXTalk-Lite-mac-$ARCH-bin.tar.xz" \
+            --exclude '*.a' --exclude '*.dSYM' --exclude '*.hmap' -X "$RUNNER_TEMP/build-tools.list" Release
+          # (grep -v exits 1 when it selects nothing; the check below reports that)
+          (cd _build/mac && find Release -type d -name '*.dSYM' -prune | sort) \
+            | grep -vxF -f "$RUNNER_TEMP/build-tools.list" > "$RUNNER_TEMP/dsym.list" || true
+          if [ ! -s "$RUNNER_TEMP/dsym.list" ]; then
+            echo "::error::no .dSYM bundles in _build/mac/Release"; exit 1
+          fi
+          echo "$(wc -l < "$RUNNER_TEMP/dsym.list" | tr -d ' ') dSYM bundles"
+          (cd _build/mac && tar -cJf "$GITHUB_WORKSPACE/OpenXTalk-Lite-mac-$ARCH-symbols.tar.xz" -T "$RUNNER_TEMP/dsym.list")
+          ls -l OpenXTalk-Lite-mac-"$ARCH"-*.tar.xz
+          for t in OpenXTalk-Lite-mac-"$ARCH"-bin.tar.xz OpenXTalk-Lite-mac-"$ARCH"-symbols.tar.xz; do
+            tar -tJf "$t" > "$RUNNER_TEMP/members.txt"
+            if grep -E '(^|/)(gentle|reflex)-' "$RUNNER_TEMP/members.txt"; then
+              echo "::error::$t holds the GENTLE files above, which may not be redistributed"; exit 1
+            fi
+          done
+
+      - name: Upload the build products
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenXTalk-Lite-mac-${{ matrix.arch }}-bin
+          path: OpenXTalk-Lite-mac-${{ matrix.arch }}-bin.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+          # The tarball is compressed already
+          compression-level: 0
+
+      - name: Upload the debug symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenXTalk-Lite-mac-${{ matrix.arch }}-symbols
+          path: OpenXTalk-Lite-mac-${{ matrix.arch }}-symbols.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+          # The tarball is compressed already
+          compression-level: 0
+
+      # The IDE compile check (tools/ci/ide-compile-check.livecodescript,
+      # the baseline of tools/ci/ide-compile-baseline.txt) over the
+      # checkout's IDE, run by the development engine just built
+      # (LiveCode-Community.app), before anything is packaged:
+      # run_livecode_check.py --repo-layout assembles Toolset, Plugins and
+      # Extensions from ide/, ide-support/ and the build's packaged
+      # extensions. After the upload, so a failure here still leaves the
+      # build to look at. python3 is the runner's (Python 2.7 is first on
+      # PATH only as python and python2).
+      - name: IDE compile check (repository)
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          python3 --version
+          python3 tools/ci/run_livecode_check.py compile --repo-layout --bin _build/mac/Release \
+            --log ide-compile-check.log
+
+      # The engine test suites of tests/ (tools/ci/run_engine_tests.py): the
+      # LiveCode Script tests of tests/lcs, each run on its own by the
+      # standalone engine just built (Standalone-Community.app), with -ui
+      # and a time limit, the LiveCode Builder tests (each handler in its
+      # own lc-run), and the LiveCode Builder compiler and LiveCode Script
+      # parser tests. A failure that is not in
+      # tools/ci/engine-tests-baseline.txt or its macOS supplements (-mac,
+      # and -mac-arm64 or -mac-x86_64 for this runner's processor) fails the
+      # step (a failed test is run once more first, and one that then passes
+      # is only reported as flaky); a crash is run again under lldb for a
+      # stack trace. The job summary lists the failures and the baseline
+      # entries that passed; the log has every failed test's output. --jobs
+      # 4: the tests of four files at a time (one at a time they take about
+      # 12 minutes here, starting the engine for each test).
+      - name: Engine tests
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 45
+        run: python3 tools/ci/run_engine_tests.py --bin _build/mac/Release --jobs 4 --log engine-tests.log
+
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs-mac-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/xcodebuild.log
+            prebuilt/build/**/config.log
+            ide-compile-check.log
+            engine-tests.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # One universal OpenXTalk-Lite.app from the two builds, signed ad hoc, as a
+  # disk image, a zip and the merged build output with its symbols. Every
+  # path below is under $RUNNER_TEMP (/Users/runner/work/_temp): no folder
+  # there is named _build or *-bin, which would put the engine into
+  # repository mode (tools/oxt/package.py repository_mode_trap).

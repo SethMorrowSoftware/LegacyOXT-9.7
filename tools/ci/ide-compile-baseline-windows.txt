@@ -1,0 +1,9 @@
+# Known compile check errors that occur only on Windows, one per line, in
+# the format of ide-compile-baseline.txt. tools/ci/ide-compile-check.ps1
+# adds them to the shared baseline.
+
+# The macOS ARM standalone builder calls "_internal build MacARM", which
+# only Tom Perry's macOS engine has (internal_development.cpp, his macOS
+# version); the Windows version, which Windows and Linux build, does not.
+# Nothing in the IDE opens this stack outside macOS.
+Toolset/palettes/standalone settings/mac-arm-deploy.oxtstack | stack "macOS-ARM standalone builder" > card (id 1002) > button "Build" (id 1009) | line 28 | compile error 494 (near "build")

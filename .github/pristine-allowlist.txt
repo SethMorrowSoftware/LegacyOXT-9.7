@@ -1,0 +1,15 @@
+# Folders of this repository's own, where files may be added freely: CI,
+# tests, packaging and documentation, none of it built into the product.
+# tools/ci/pristine_guard.py allows an added path that matches one of these
+# patterns. Every other difference from LiveCode's source (a file of
+# LiveCode's changed or deleted, or a file added anywhere else) must be
+# named, with its reason, in CHANGES-FROM-LIVECODE.md.
+#
+# One pattern per line, relative to the repository root; "*" matches within
+# one path segment, "**" across segments; text after "#" is a comment.
+
+.github/**
+tools/ci/**
+tools/oxt/**
+tests/**
+CHANGES-FROM-LIVECODE.md

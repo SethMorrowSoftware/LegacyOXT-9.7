@@ -80,3 +80,13 @@ TestAssert "test", true
 end if
 
 end TestMultimedia4
+
+on TestCreatePlayerInStackWithoutWindow
+   -- A stack has no window until it opens, and with -ui none ever has one:
+   -- creating a player in such a stack crashed on Windows.
+   create stack "PlayerWithoutWindowTest"
+   set the defaultStack to "PlayerWithoutWindowTest"
+   create player "Test"
+   TestAssert "a player can be created in a stack without a window", there is a player "Test"
+   delete stack "PlayerWithoutWindowTest"
+end TestCreatePlayerInStackWithoutWindow

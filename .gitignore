@@ -130,6 +130,8 @@ prebuilt/build
 prebuilt/packaged
 prebuilt/fetched
 prebuilt/unpacked
+# External assets downloaded by tools/oxt/package.py (tools/oxt/external-assets.json)
+prebuilt/fetched-assets/
 
 # Stamp files and generated C files
 ###################################
@@ -149,3 +151,7 @@ LiveCodeUserGuide-*
 # Python 3 bytecode #
 #####################
 __pycache__/
+
+# Tom Perry's release files (Installer/openxtalk-lite/from-tom-release) are
+# kept, binaries included
+!Installer/openxtalk-lite/from-tom-release/**

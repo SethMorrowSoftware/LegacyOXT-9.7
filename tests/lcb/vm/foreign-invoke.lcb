@@ -25,15 +25,33 @@ foreign handler free(in pBlock as Pointer) returns nothing binds to "<builtin>"
 foreign handler sprintf(in pTarget as Pointer, in pFormat as ZStringNative, ...) returns CInt binds to "<builtin>"
 foreign handler MCStringCreateWithCString(in pCString as Pointer, out rString as String) returns CBool binds to "<builtin>"
 
+-- On Windows "<builtin>" finds only what the program exports, and lc-run
+-- has the C runtime built in without exporting any of it: there the tests
+-- call the functions of msvcrt.dll, the C runtime every Windows has
+foreign handler MsvcrtMalloc(in pSize as UIntSize) returns Pointer binds to "msvcrt>malloc"
+foreign handler MsvcrtFree(in pBlock as Pointer) returns nothing binds to "msvcrt>free"
+foreign handler MsvcrtSprintf(in pTarget as Pointer, in pFormat as ZStringNative, ...) returns CInt binds to "msvcrt>sprintf"
+
 public handler TestForeignInvoke_Varargs()
+   variable tWindows as Boolean
+   put the operating system is "windows" into tWindows
+
    variable tOutputBuffer as Pointer
    unsafe
-      put malloc(4096) into tOutputBuffer
+      if tWindows then
+         put MsvcrtMalloc(4096) into tOutputBuffer
+      else
+         put malloc(4096) into tOutputBuffer
+      end if
    end unsafe
 
    variable tString1 as String
    unsafe
-      sprintf(tOutputBuffer, "no formats")
+      if tWindows then
+         MsvcrtSprintf(tOutputBuffer, "no formats")
+      else
+         sprintf(tOutputBuffer, "no formats")
+      end if
       MCStringCreateWithCString(tOutputBuffer, tString1)
    end unsafe
    test "sprintf works with no variadic arguments" when tString1 is "no formats"
@@ -41,7 +59,9 @@ public handler TestForeignInvoke_Varargs()
    variable tString2 as String
    unsafe
       variable tInt as SInt16
-      variable tLong as SInt32
+      -- %ld reads a C long, which has 64 bits on macOS and Linux and 32 on
+      -- Windows, as CLong does
+      variable tLong as CLong
       variable tLongLong as SInt64
       variable tFloat as CFloat
       variable tDouble as CDouble
@@ -50,7 +70,13 @@ public handler TestForeignInvoke_Varargs()
       put tLong * 1000000 into tLongLong
       put 3.5 into tFloat
       put 7.5 into tDouble
-      sprintf(tOutputBuffer, "%d %ld %lld %.1f %.1lf", tInt, tLong, tLongLong, tFloat, tDouble)
+      if tWindows then
+         -- %I64d rather than %lld (C99), which not every version of
+         -- msvcrt.dll reads
+         MsvcrtSprintf(tOutputBuffer, "%d %ld %I64d %.1f %.1lf", tInt, tLong, tLongLong, tFloat, tDouble)
+      else
+         sprintf(tOutputBuffer, "%d %ld %lld %.1f %.1lf", tInt, tLong, tLongLong, tFloat, tDouble)
+      end if
       MCStringCreateWithCString(tOutputBuffer, tString2)
    end unsafe
    test "sprintf works with variadic arguments" when tString2 is "1000 1000000000 1000000000000000 3.5 7.5"
@@ -58,13 +84,21 @@ public handler TestForeignInvoke_Varargs()
    variable tString3 as String
    unsafe
       variable tNothing as optional Pointer
-      sprintf(tOutputBuffer, "nullptr %p", tNothing)
+      if tWindows then
+         MsvcrtSprintf(tOutputBuffer, "nullptr %p", tNothing)
+      else
+         sprintf(tOutputBuffer, "nullptr %p", tNothing)
+      end if
       MCStringCreateWithCString(tOutputBuffer, tString3)
    end unsafe
    test "sprintf works with nullptr variadic argument" when tString3 begins with "nullptr "
 
    unsafe
-      free(tOutputBuffer)
+      if tWindows then
+         MsvcrtFree(tOutputBuffer)
+      else
+         free(tOutputBuffer)
+      end if
    end unsafe
 end handler
 
@@ -96,10 +130,16 @@ end handler
 public foreign type ldiv_t binds to "MCAggregateTypeInfo:FF"
 
 __safe foreign handler ldiv(in pNumer as CSLong, in pDenom as CSLong) returns ldiv_t binds to "<builtin>"
+-- On Windows, the one of msvcrt.dll (see TestForeignInvoke_Varargs)
+__safe foreign handler MsvcrtLdiv(in pNumer as CSLong, in pDenom as CSLong) returns ldiv_t binds to "msvcrt>ldiv"
 
 public handler TestForeignInvoke_AggregateReturnValue()
    variable tResult as List
-   put ldiv(10000000, 314159) into tResult
+   if the operating system is "windows" then
+      put MsvcrtLdiv(10000000, 314159) into tResult
+   else
+      put ldiv(10000000, 314159) into tResult
+   end if
    test "aggregate return value of ldiv is correct" when tResult[1] * 314159 + tResult[2] is 10000000
 end handler
 

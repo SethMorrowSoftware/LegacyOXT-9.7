@@ -109,11 +109,18 @@ function CompilerTestRunner_DoesOutputSatisfyAssertion pCompilerOutput, pCompile
       if tState is "search" then
          -- The format of each output line is:
          --   <file>:<line>:<col>: (error|warning): <msg>
-         put item 1 of tOutputLine into tFile
-         put item 2 of tOutputLine into tLine
-         put item 3 of tOutputLine into tColumn
-         put word 1 of item 4 of tOutputLine into tType
-         put item 5 to -1 of tOutputLine into tMessage
+         -- On Windows <file> starts with a drive ("C:/..."), whose colon is
+         -- not a separator.
+         local tFileItems
+         put 1 into tFileItems
+         if char 2 of tOutputLine is ":" and char 3 of tOutputLine is in "/\" then
+            put 2 into tFileItems
+         end if
+         put item 1 to tFileItems of tOutputLine into tFile
+         put item tFileItems + 1 of tOutputLine into tLine
+         put item tFileItems + 2 of tOutputLine into tColumn
+         put word 1 of item tFileItems + 3 of tOutputLine into tType
+         put item tFileItems + 4 to -1 of tOutputLine into tMessage
 
          -- If the assertion type doesn't match, continue
          if tAssertionType is not tType then

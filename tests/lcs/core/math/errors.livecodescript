@@ -344,3 +344,15 @@ command DoNaryFunction pParams
       break
    end switch
 end DoNaryFunction
+
+command DoBaseConvert pNumber
+   get baseConvert(pNumber, 16, 10)
+end DoBaseConvert
+
+on TestBaseConvertError
+   TestAssert "baseConvert converts the largest number", \
+         baseConvert("FFFFFFFF", 16, 10) is "4294967295"
+   TestAssertThrow "baseConvert throws for a number larger than 32 bits", \
+         "DoBaseConvert", the long id of me, "EE_BASECONVERT_CANTCONVERT", \
+         "100000000"
+end TestBaseConvertError

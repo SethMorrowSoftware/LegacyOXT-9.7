@@ -1,0 +1,19 @@
+# Engine test suite (tools/ci/run_engine_tests.py): tests known to fail on
+# Linux with Tom Perry's OpenXTalk Lite 1.15 code that are not in
+# engine-tests-baseline.txt (the failures on every platform). One
+# "<suite>: <test>" per line; "? " before it: fails only sometimes; text
+# after " #" is a comment. See engine-tests-baseline.txt.
+
+# Each of these is a regression test that OXT-Beyond added for a bug it
+# fixed; Tom Perry's code has the bug. Seen on Linux x86_64 and arm64.
+
+# The last second of 1969 does not convert (OXT-Beyond a559db073)
+lcs: core/datetime/datetime: TestConvertDatesBefore1970
+
+# "~" is not $HOME, and "~user/folder" does not resolve (OXT-Beyond
+# 41699b481). "~" is the home folder of the user's /etc/passwd entry
+# (getpwuid in dsklnx.cpp), so TestFilesOfTilde passes where $HOME is that
+# folder: in the linux-x86 container (/root), not in the x86_64 and arm64
+# job containers (HOME=/github/home)
+? lcs: core/files/folders: TestFilesOfTilde
+lcs: core/files/folders: TestFilesOfTildeUser

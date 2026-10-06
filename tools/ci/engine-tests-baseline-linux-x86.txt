@@ -1,0 +1,24 @@
+# Engine test suite (tools/ci/run_engine_tests.py): tests known to fail in
+# the 32-bit Linux build (the linux-x86 leg of build-linux.yml) that are
+# not in engine-tests-baseline.txt or engine-tests-baseline-linux.txt. One
+# "<suite>: <test>" per line; "? " before it: fails only sometimes; text
+# after " #" is a comment. Each comes from 32-bit x86 Linux itself (its C
+# library, its compiler's floating point, its type sizes), not from a fault
+# in the code.
+
+# time_t is 32 bits on i386, and glibc 2.31 (Debian 11, the build's floor)
+# has no 64-bit time_t for 32-bit programs (_TIME_BITS=64 came with 2.34),
+# so the C library cannot convert dates before December 1901 (here
+# 7/4/1776)
+lcs: core/datetime/datetime: TestConvertDatesBefore1970
+
+# GCC's 32-bit x86 code computes with the x87 unit's 80-bit registers, in
+# which the sums of these statistics functions do not overflow, so they
+# return a number where the 64-bit builds (SSE2, 64-bit doubles) throw the
+# overflow error the test expects
+lcs: core/math/errors: TestNaryOverflowErrors
+
+# Type code q is "naturalfloat", the platform's natural float: a double on
+# 64-bit platforms, a 32-bit float on 32-bit ones, which cannot hold the
+# test's 3.14159 exactly, so the value read back differs
+lcb: lcb/vm/foreign-aggregate: TestForeignAggregate_Roundtrip

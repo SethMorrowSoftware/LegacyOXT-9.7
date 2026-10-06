@@ -93,7 +93,8 @@ end TestGlobals
 on TestMachine
    TestSkipIf "platform", "HTML5"
 if the platform is "win32" then
-TestAssert "Machine is x86", the machine is "x86"
+-- x86_64 for the 64-bit engine, the only one built from this repository
+TestAssert "Machine is x86 or x86_64", the machine is among the items of "x86,x86_64"
 else if the platform is "iphone" then
 TestAssert "iPhone machine", the machine is "iPod Touch" or the machine is "iPhone" or the machine is "iPhone Simulator" or the machine is "iPad" or the machine is "iPad Simulator"
 else
@@ -145,14 +146,14 @@ on TestProcessor
 local tProcessors
 
 if the platform is "Win32" then
-put "x86" into tProcessors
+put "x86,x86_64" into tProcessors
 else if the platform is "android" then
 put "arm,i386" into tProcessors
 else if the platform is "iphone" then
 put "arm,arm64,i386,x86_64" into tProcessors
 else if the platform is among the items of "MacOS,Linux" then
-   // Mac and Linux
-   put "x86,x86_64" into tProcessors
+   // Mac and Linux, including Apple Silicon and 64-bit ARM Linux
+   put "x86,x86_64,arm,arm64" into tProcessors
 else
    -- Unknown platform for "the processor"
 end if
@@ -278,7 +279,12 @@ put item 3 of the version into tItem3
 set the itemDelimiter to "-"
 TestAssert "Third element is a number", item 1 of tItem3 is an integer
 
-if the number of items of tItem3 > 1 then
+-- The OpenXTalk engine is 9.7.1-OXT: a release, marked as OpenXTalk's
+-- rather than as a LiveCode developer preview or release candidate
+if the number of items of tItem3 is 2 and item 2 of tItem3 is "OXT" then
+testSkip
+testSkip
+else if the number of items of tItem3 > 1 then
 testAssert "Non-GM build type is either dp or rc", item 2 of tItem3 is among the items of "dp-rc"
 testAssert "Non-GM build type number is a number", item 3 of tItem3 is an integer
 else

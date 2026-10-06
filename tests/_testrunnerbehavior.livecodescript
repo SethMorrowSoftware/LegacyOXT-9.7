@@ -55,6 +55,11 @@ end getCommandLineInfo
 
 command TestRunnerMain
    __EnsureLibs
+   -- On Windows, shell() and open process show a console window for each
+   -- command unless this is set; the test runner and some tests run many.
+   if the platform is "Win32" then
+      set the hideConsoleWindows to true
+   end if
    local tInfo
    put getCommandLineInfo() into tInfo
    TestRunnerMainWithInfo tInfo

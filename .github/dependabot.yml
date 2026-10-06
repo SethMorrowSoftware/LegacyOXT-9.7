@@ -1,0 +1,15 @@
+# Keeps the GitHub Actions used in .github/workflows up to date. The build
+# itself uses vendored sources and prebuilt tarballs pinned by checksum, so no
+# other package ecosystems are tracked here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: ci

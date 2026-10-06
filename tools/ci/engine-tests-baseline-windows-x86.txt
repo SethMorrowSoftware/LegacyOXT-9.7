@@ -1,0 +1,12 @@
+# Engine test suite (tools/ci/run_engine_tests.py): tests known to fail in
+# the 32-bit Windows build (the "Build win-x86" job of build-windows.yml)
+# that are not in engine-tests-baseline.txt or
+# engine-tests-baseline-windows.txt. One "<suite>: <test>" per line; "? "
+# before it: fails only sometimes; text after " #" is a comment. Each comes
+# from 32-bit x86 itself (its type sizes), not from a fault in the
+# code.
+
+# Type code q is "naturalfloat", the platform's natural float: a double on
+# 64-bit platforms, a 32-bit float on 32-bit ones, which cannot hold the
+# test's 3.14159 exactly, so the value read back differs
+lcb: lcb/vm/foreign-aggregate: TestForeignAggregate_Roundtrip

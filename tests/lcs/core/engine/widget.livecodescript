@@ -157,3 +157,21 @@ on TestWidgetDeleteUndo
    
    delete stack "WidgetDeleteUndo"
 end TestWidgetDeleteUndo
+
+on TestExportWidgetOfKindNotLoaded
+   create stack "WidgetNotLoadedExportTest"
+   set the defaultStack to "WidgetNotLoadedExportTest"
+
+   -- A widget whose kind is not loaded has no implementation, and one
+   -- made by script has no saved state either: exporting it crashed.
+   create widget "Test" as "com.livecode.lcs_tests.core.notloaded"
+
+   local tArray
+   export widget "Test" to array tArray
+   TestAssert "export of a widget whose kind is not loaded keeps its kind", \
+         tArray["$kind"] is "com.livecode.lcs_tests.core.notloaded"
+   TestAssert "export of a widget whose kind is not loaded has no state", \
+         tArray["$state"] is empty
+
+   delete stack "WidgetNotLoadedExportTest"
+end TestExportWidgetOfKindNotLoaded

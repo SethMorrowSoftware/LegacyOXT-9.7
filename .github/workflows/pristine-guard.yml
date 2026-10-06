@@ -1,0 +1,41 @@
+# Checks that every difference from LiveCode's source is documented in
+# CHANGES-FROM-LIVECODE.md (tools/ci/pristine_guard.py): that the tag
+# livecode-9.7.0-dp-1 (LiveCode develop 4606a10ea with its submodules
+# vendored) still has its tree, and that every file of LiveCode's that
+# main changes or deletes, and every file added outside this repository's
+# own folders, is named there. The job summary lists the differences with
+# their line counts.
+#
+# Runs on every push to main and every pull request, and by hand.
+
+name: Pristine guard
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Pristine guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # A blobless clone: comparing commits needs their trees, not the
+      # files' contents, which git fetches for the line counts when asked
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          filter: blob:none
+          fetch-depth: 0
+
+      - name: Check every difference from LiveCode's source
+        run: |
+          git log --no-walk --format='%H %an %ad %s' livecode-9.7.0-dp-1
+          python3 tools/ci/pristine_guard.py --summary

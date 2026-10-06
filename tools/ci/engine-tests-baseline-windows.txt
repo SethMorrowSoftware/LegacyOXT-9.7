@@ -1,0 +1,58 @@
+# Engine test suite (tools/ci/run_engine_tests.py): tests known to fail on
+# Windows with Tom Perry's OpenXTalk Lite 1.15 code that are not in
+# engine-tests-baseline.txt (the failures on every platform). One
+# "<suite>: <test>" per line; "? " before it: fails only sometimes; text
+# after " #" is a comment. See engine-tests-baseline.txt.
+#
+# Each is a bug of the LiveCode 9.7 code under OpenXTalk Lite 1.15 that
+# OXT-Beyond fixed, with the OXT-Beyond commit; most were in OXT-Beyond's
+# own Windows baseline before its fix. Seen on the Windows x86-64 runner.
+
+# Text compares by the Windows-1252 code of a char the engine holds as a
+# native one (the euro sign is 0x80), and by codepoint otherwise, so sort
+# and < depend on how a string was made (OXT-Beyond db44e1c79, which added
+# the two sort tests)
+lcs: core/array/combine: TestCombineMixed
+lcs: core/array/combine: TestCombineStrings
+lcs: core/strings/sort: TestSortTextByCodepoint
+lcs: core/strings/sort: TestCompareTextByCodepoint
+
+# The engine attaches to the console of the program that started it, and
+# Windows then replaces the standard handles it inherited from cmd.exe:
+# shell() gets none of its output (OXT-Beyond 276c17b52)
+lcs: core/debugging/log: TestLog
+
+# No date before 1970 converts (the C runtime's time functions start then),
+# nor a two-digit year that means one (OXT-Beyond 3b5d1de4c)
+lcs: core/datetime/datetime: TestConvertDatesBefore1970
+lcs: core/engine/localproperties: TestCenturyCutOff
+
+# Creating a player crashes the engine when the stack has no window, as
+# every stack without a user interface (-ui) has none (OXT-Beyond
+# e1c4c426d, which added TestCreatePlayerInStackWithoutWindow)
+lcs: core/engine/put: TestPutBeforeIntoAfterInvalidContainer
+lcs: core/interface/controlatloc: TestControlAtLoc
+lcs: core/interface/group: TestGroupUndo_Bug20642
+lcs: core/multimedia/multimedia: TestCreatePlayerInStackWithoutWindow
+
+# Without a user interface, accept connections does not listen (the event
+# that the sockets signal is never created) (OXT-Beyond 1909ae17e). The
+# libURL tests talk to servers of their own in the test's engine, so they
+# fail with it
+lcs: core/network/network: TestAcceptConnectionsInEphemeralPortRange
+lcs: core/network/network: TestOpenSocketFromWithAddressAndPortUsingLocalServer
+lcs: core/network/network: TestOpenSocketFromWithAddressUsingLocalServer
+lcs: liburl/connect: TestCONNECTHeader
+lcs: liburl/headers: TestHostHeader
+lcs: liburl/status_codes: TestStatusCodes
+
+# The "files" type of the clipboard comes back with its slashes swapped:
+# the paths are put on the clipboard as they are, not as native ones, and
+# converted from native ones when they are read ("/file/path" became
+# "\file\path") (OXT-Beyond 2935f221d). It runs only in CI (or with
+# --desktop-tests)
+lcs: core/engine/clipboard: TestClipboardMultipleTypes
+
+# The foundLoc of a found chunk was wrong once in a full run, and right when
+# the test ran again
+? lcs: core/interface/interface: TestFoundLoc

@@ -266,6 +266,15 @@ public handler TestDelegateNativeReturnType()
             because "not implemented on" && the operating system
         return
     end if
+
+    -- The BOOL that control:isValidObject: returns is a signed char only
+    -- on macOS on Intel. Elsewhere it is a C bool, which the Integer of
+    -- _TestNativeReturnTypeConvert does not convert to.
+    if the operating system is "ios" or the architecture is not "x86_64" then
+        skip test "objc delegate returns valid bridge type" \
+            because "BOOL is a C bool on" && the architecture
+        return
+    end if
     
     plan 2 tests
     

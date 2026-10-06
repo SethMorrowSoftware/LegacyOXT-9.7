@@ -93,14 +93,50 @@ on TestOpenSocketFrom
    close socket tSock
 end TestOpenSocketFrom
 
-on TestOpenSocketFromWithLSOF
-   if the platform is "MacOS" or the platform contains "linux" then
-      put "livecode.com|" & uuid() into tSock
-      open socket from ":8001" to tSock
-      get shell("lsof -i4TCP:8001")
-      TestAssert "open socket from testing with lsof", it contains "LiveCode"
-      close socket tSock
+-- The path of lsof, or empty when it is not installed: Windows has no
+-- lsof, and not every Linux has it (the Linux CI container has none)
+private function __LsofPath
+   if the platform is not "MacOS" and the platform is not "Linux" then
+      return empty
    end if
+   local tPath
+   repeat for each item tPath in "/usr/sbin/lsof,/usr/bin/lsof"
+      if there is a file tPath then
+         return tPath
+      end if
+   end repeat
+   put line 1 of shell("command -v lsof") into tPath
+   if tPath is not empty and there is a file tPath then
+      return tPath
+   end if
+   return empty
+end __LsofPath
+
+on TestOpenSocketFromWithLSOF
+   local tLsof
+   put __LsofPath() into tLsof
+   if tLsof is empty then
+      TestSkip "open socket from testing with lsof", "lsof is not installed"
+      exit TestOpenSocketFromWithLSOF
+   end if
+
+   -- a connection to a server of this process, which needs no outside host
+   local tPort, tSock
+   accept connections on port "0" with message "connectedPlaceHolder"
+   put it into tPort
+   put "127.0.0.1:" & tPort into tSock
+   open socket from ":8001" to tSock
+   TestAssert "open socket result is empty: " & the result, the result is empty
+
+   -- The TCP sockets of this process on port 8001, with addresses and ports
+   -- as numbers (-n -P): the one opened from local port 8001 has it before
+   -- the "->" (the server's end of the connection has it after)
+   local tSockets
+   put shell(tLsof && "-nP -a -p" && the processID && "-iTCP:8001") into tSockets
+   TestDiagnostic tSockets
+   TestAssert "open socket from testing with lsof", tSockets contains ":8001->"
+   close socket tSock
+   close socket tPort
 end TestOpenSocketFromWithLSOF
 
 on TestOpenSocketFromMultipleHostsSamePort
@@ -108,10 +144,17 @@ on TestOpenSocketFromMultipleHostsSamePort
    put "google.com|" & uuid() into tSock2
    open socket from ":8002" to tSock1
    TestAssert "open socket result is empty: " & the result, the result is empty
+   TestAssert "open socket from with multiple hosts on same local port", tSock1 is among the lines of the openSockets
    open socket from ":8002" to tSock2
    TestAssert "open socket result is empty: " & the result, the result is empty
-   TestAssert "open socket from with multiple hosts on same local port", tSock1 is among the lines of the openSockets
-   TestAssert "open socket from with multiple hosts on same local port", tSock2 is among the lines of the openSockets
+   -- the second open looks up its host in a wait that also handles the
+   -- first socket, and ends it if its connection failed meanwhile, which
+   -- frees the local port: then the two sockets never shared it
+   if tSock1 is among the lines of the openSockets then
+      TestAssert "open socket from with multiple hosts on same local port", tSock2 is among the lines of the openSockets
+   else
+      TestSkip "open socket from with multiple hosts on same local port", "the first connection failed before the second socket was opened"
+   end if
    close socket tSock1
    close socket tSock2
 end TestOpenSocketFromMultipleHostsSamePort
@@ -140,7 +183,7 @@ on TestOpenSocketFromWithAddress
       put "livecode.com|" & uuid() into tSock
       open socket from tLocalAddress to tSock
       TestAssert "open socket from with local address", tSock is among the lines of the openSockets
-      close socket tSock1
+      close socket tSock
    end if
 end TestOpenSocketFromWithAddress
 
@@ -175,10 +218,17 @@ on TestOpenSocketFromMultipleHostsSameAddress
       put "google.com|" & uuid() into tSock2
       open socket from tLocalAddress & ":8006" to tSock1
       TestAssert "open socket result is empty: " & the result, the result is empty
+      TestAssert "open socket from with multiple hosts using same local address", tSock1 is among the lines of the openSockets
       open socket from tLocalAddress & ":8006" to tSock2
       TestAssert "open socket result is empty: " & the result, the result is empty
-      TestAssert "open socket from with multiple hosts using same local address", tSock1 is among the lines of the openSockets
-      TestAssert "open socket from with multiple hosts using same local address", tSock2 is among the lines of the openSockets
+      -- the second open looks up its host in a wait that also handles the
+      -- first socket, and ends it if its connection failed meanwhile, which
+      -- frees the local port: then the two sockets never shared it
+      if tSock1 is among the lines of the openSockets then
+         TestAssert "open socket from with multiple hosts using same local address", tSock2 is among the lines of the openSockets
+      else
+         TestSkip "open socket from with multiple hosts using same local address", "the first connection failed before the second socket was opened"
+      end if
       close socket tSock1
       close socket tSock2
    end if

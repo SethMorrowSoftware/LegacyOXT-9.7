@@ -1,0 +1,677 @@
+# Builds OpenXTalk Lite 1.15 (Tom Perry's source, his Windows and macOS
+# working copies merged at the tag tom-perry-1.15-merged, with the build
+# changes after it; CHANGES-FROM-TOM.md lists them) for Linux x86_64, arm64 and x86 on
+# GitHub-hosted runners, checks it and packages the x86_64 build. Adapted
+# from OXT-Beyond's workflow of the same name; see README.md.
+#
+# The x86_64 and arm64 builds run in an Ubuntu 20.04 container, the x86 one
+# in a Debian 11 i386 container (tools/ci/i386-container.sh): glibc 2.31
+# and GCC 10's libstdc++ are the oldest the binaries need (the Verify step
+# checks every ELF file with tools/ci/check_elf_floor.py), and Ubuntu 20.04
+# still has the Python 2.7 that gyp and config.py need. Tom Perry's Linux
+# 1.15 source is not imported yet, so these builds are of the merged
+# Windows and macOS tree, with OXT-Beyond's Linux port of the build files.
+#
+# Prebuilt libraries: LiveCode's download server no longer serves them, so
+# they are built here from the versions pinned in prebuilt/versions (the
+# ones Tom Perry's tree pins, except OpenSSL 1.1.1w for 1.1.1g; see the
+# commit that changed it) with the scripts in prebuilt/, and kept in the
+# GitHub Actions cache:
+#   OpenSSL, Curl, ICU  prebuilt/scripts/build-{openssl,curl,icu}.sh
+#   CEF (x86_64 only)   Spotify's CEF build, repackaged by build-cef.sh
+#   Thirdparty          the vendored thirdparty/ sources, built by gyp
+#
+# Each build uploads its build output (OpenXTalk-Lite-linux-<arch>-bin, a
+# tar.xz without the debug symbols and without the tools the build makes to
+# build itself, GENTLE among them) and its debug symbols
+# (OpenXTalk-Lite-linux-<arch>-symbols), then runs the IDE compile check on
+# the checkout's IDE and the engine test suites of tests/. A failure that
+# is not in the baselines (tools/ci/*-baseline*.txt, which record how Tom
+# Perry's code behaves) fails the job.
+#
+# The job "Package linux-x86_64" makes the Linux package from the x86_64
+# build's artifacts, on a plain ubuntu-24.04 runner, tests it as users get
+# it (smoke test, IDE compile check through the launcher, standalones,
+# browser and player, system libraries, desktop entry, install scripts) and
+# uploads, as the artifact OpenXTalk-Lite-linux-x86_64:
+#
+#   OpenXTalk-Lite-<ver>-linux-x86_64.tar.xz           the program folder,
+#                                                       with the launcher
+#                                                       openxtalk-lite and
+#                                                       install.sh
+#   OpenXTalk-Lite-<ver>-linux-x86_64-binaries.tar.xz  the build output
+#   OpenXTalk-Lite-<ver>-linux-x86_64-symbols.tar.xz   the *.dbg files
+#   SHA256SUMS
+#
+# The standalone runtimes for other platforms come from the external asset
+# oxt-runtimes-1.15 (OpenXTalk Lite 1.15's own). Every check after the
+# build or the packaging runs even when an earlier check failed, so that a
+# run reports all of them.
+#
+# Version: <ver> is BUILD_SHORT_VERSION in the file version, LiveCode's
+# 9.7.0-dp-1. Releases are
+# tagged v<ver>-r<n>, the nth release built from this repository; a tag
+# build of any other "v" tag fails straight away. OXT_BUILD_NUMBER is the
+# input build-number when release.yml gives one, else the UTC time as
+# YYYYMMDDHHMM.
+#
+# Releases: .github/workflows/release.yml calls this workflow (workflow_call)
+# and publishes the artifact OpenXTalk-Lite-linux-x86_64 with the other
+# platforms' packages.
+
+name: Build (Linux)
+
+on:
+  # No tags here: release.yml builds them (see the header)
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      no_external_assets:
+        description: >-
+          Package without the external assets of tools/oxt/external-assets.json
+          (no runtimes for other platforms), for testing while an asset is not
+          published yet
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      build-number:
+        description: >-
+          OXT_BUILD_NUMBER for every job of the run (digits; release.yml
+          gives all three platforms the same); empty for the UTC time at
+          which each job starts
+        type: string
+        required: false
+        default: ''
+      release:
+        description: >-
+          Build as for a release: never leave out the external assets
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  # A called release build (release.yml) gets a group of its own, the
+  # caller's run id: in the caller's run github.ref is the tag or the
+  # branch of a dry run, and pushes to that branch must neither cancel the
+  # release build nor wait for it (see build-windows.yml)
+  group: build-linux-${{ inputs.release && format('release-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build linux-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ubuntu:20.04
+    timeout-minutes: 330
+    # built-<arch> is "true" once that leg has passed every step (the last
+    # step sets it). The package job needs it because a matrix job fails as
+    # a whole when any leg fails; outputs with names of their own are
+    # combined from the legs.
+    outputs:
+      built-x86_64: ${{ steps.built.outputs.built-x86_64 }}
+      built-arm64: ${{ steps.built.outputs.built-arm64 }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      ARCH: ${{ matrix.arch }}
+      MODE: release
+      BUILDTYPE: Release
+    steps:
+      - name: Install build tools and headers
+        run: |
+          # Retry a download that a mirror drops instead of failing the job
+          echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/80-oxt-retries
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential gcc g++ make perl bison flex gawk pkg-config \
+            python2 python-is-python2 python3 openjdk-11-jdk-headless \
+            git curl ca-certificates bzip2 xz-utils zip unzip file binutils \
+            libx11-dev libxext-dev libxrender-dev libxft-dev libxinerama-dev \
+            libxv-dev libxcursor-dev libfreetype6-dev libfontconfig1-dev \
+            libexpat1-dev libgtk2.0-dev libpopt-dev liblcms2-dev
+          # (sed rather than head: GitHub's bash uses pipefail, and head
+          # closing the pipe early would fail the step with SIGPIPE)
+          gcc --version | sed -n 1p
+          python --version
+          ldd --version | sed -n 1p
+          echo "Processors: $(nproc)"
+
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # No step pushes or fetches, so the token need not stay in .git/config
+          persist-credentials: false
+
+      # The version gate of build-windows.yml: a tag build fails straight
+      # away when the tag is not "v" followed by BUILD_SHORT_VERSION (the file version), so that no
+      # platform builds (and none publishes) files under another version.
+      # (Called by release.yml, github.ref_type and github.ref_name are the
+      # caller's: the tag of the release.) One build number for every file
+      # of this job, OXT_BUILD_NUMBER: release.yml's input, else the UTC
+      # time now, as YYYYMMDDHHMM (what tools/oxt/package.py writes into
+      # .buildnumber). The step runs after the tool install because the
+      # checkout needs the container's git.
+      - name: Read the product version
+        id: product
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          BUILD_NUMBER_INPUT: ${{ inputs.build-number }}
+        run: |
+          version=$(sed -n 's/^BUILD_SHORT_VERSION = *//p' version | tr -d '\r')
+          # Trim white space at both ends, like the Trim() of the Windows step
+          version="${version#"${version%%[![:space:]]*}"}"
+          version="${version%"${version##*[![:space:]]}"}"
+          re='^[0-9]+(\.[0-9]+){1,3}(-[0-9A-Za-z][0-9A-Za-z.-]*)?$'
+          if ! [[ $version =~ $re ]]; then
+            echo "::error::version (BUILD_SHORT_VERSION) contains '$version'; expected a version such as 0.0.1 or 0.1.0-beta.1"
+            exit 1
+          fi
+          # A release tag is v<version>-r<n>, the nth release built from this
+          # repository ([vV]: the Windows step's -like 'v*' ignores case)
+          if [ "$REF_TYPE" = tag ] && [[ $REF_NAME == [vV]* ]]; then
+            rebuild=${REF_NAME#"v$version-r"}
+            if [ "$rebuild" = "$REF_NAME" ] || ! [[ $rebuild =~ ^[1-9][0-9]*$ ]]; then
+              echo "::error::Tag $REF_NAME does not match BUILD_SHORT_VERSION in version ($version); the tags for this version are v$version-r1, v$version-r2 and so on"
+              exit 1
+            fi
+          fi
+          if [ -n "$BUILD_NUMBER_INPUT" ]; then
+            # Digits only, as tools/oxt/package.py requires
+            digits='^[0-9]{1,20}$'
+            if ! [[ $BUILD_NUMBER_INPUT =~ $digits ]]; then
+              echo "::error::The input build-number is '$BUILD_NUMBER_INPUT'; expected digits, such as 202610011200"
+              exit 1
+            fi
+            build_number=$BUILD_NUMBER_INPUT
+          else
+            build_number=$(date -u +%Y%m%d%H%M)
+          fi
+          echo "LiveCode Community $version, build number $build_number"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build-number=$build_number" >> "$GITHUB_OUTPUT"
+          echo "OXT_BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+
+      - name: Mark the workspace safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # The key covers everything the prebuilt tarballs are made from: library
+      # versions, the prebuilt scripts, the vendored thirdparty/ tree and the
+      # gyp settings the Thirdparty libraries are compiled with.
+      - name: Compute the prebuilt libraries cache key
+        id: prebuilt-key
+        run: |
+          scripts=$(cat prebuilt/versions/* prebuilt/scripts/*.sh prebuilt/scripts/*.inc \
+                        prebuilt/build-libraries.sh prebuilt/package-libs.sh \
+                        prebuilt/thirdparty.gyp config/*.gypi | sha256sum | cut -c1-16)
+          thirdparty=$(git rev-parse HEAD:thirdparty | cut -c1-12)
+          echo "key=prebuilt-linux-${ARCH}-focal-${scripts}-${thirdparty}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore prebuilt libraries
+        id: prebuilt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: prebuilt/packaged
+          key: ${{ steps.prebuilt-key.outputs.key }}
+
+      - name: Build OpenSSL, Curl, ICU and CEF from source
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        working-directory: prebuilt
+        run: |
+          export PREBUILT_MAKE_JOBS="$(nproc)"
+          PREBUILT_BUILD_LIBS="openssl curl icu cef" ./build-libraries.sh linux "$ARCH"
+          ./package-libs.sh linux "$ARCH"
+          ls -la packaged
+
+      # thirdparty-prebuilts is a gyp target in the engine's own build tree.
+      # Its OpenSSL headers dependency runs fetch-libraries.sh, which must not
+      # look for the Thirdparty tarball that is still being built.
+      - name: Build the Thirdparty libraries from thirdparty/
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        working-directory: prebuilt
+        env:
+          PREBUILT_LINUX_LIBS: OpenSSL Curl ICU CEF
+          PREBUILT_SKIP_VERIFY: '1'
+        run: |
+          export PREBUILT_LOCAL_DIR="$PWD/packaged"
+          export PREBUILT_MAKE_JOBS="$(nproc)"
+          PREBUILT_BUILD_LIBS=thirdparty ./build-libraries.sh linux "$ARCH"
+          ./package-libs.sh linux "$ARCH"
+          ls -la packaged
+          (cd packaged && sha256sum *.tar.bz2)
+
+      - name: Save prebuilt libraries to the cache
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: prebuilt/packaged
+          key: ${{ steps.prebuilt-key.outputs.key }}
+
+      # The tarballs were built above (or restored from the cache), so they
+      # have no entries in prebuilt/SHA256SUMS, which lists published files.
+      - name: Fetch prebuilt libraries
+        run: |
+          echo "PREBUILT_LOCAL_DIR=$PWD/prebuilt/packaged" >> "$GITHUB_ENV"
+          echo "PREBUILT_SKIP_VERIFY=1" >> "$GITHUB_ENV"
+          cd prebuilt
+          PREBUILT_LOCAL_DIR="$PWD/packaged" PREBUILT_SKIP_VERIFY=1 ./fetch-libraries.sh linux "$ARCH"
+
+      - name: Configure
+        run: make config-linux-"$ARCH"
+
+      # The final copy into linux-<arch>-bin runs as a second make: its input
+      # out/Release/Externals is only created as a side effect of the CEF
+      # copies, so in one parallel make it could be reached before it existed.
+      - name: Build
+        id: build
+        run: |
+          make -C build-linux-"$ARCH"/livecode LiveCode-all debug-symbols BUILDTYPE=Release -j"$(nproc)"
+          make -C build-linux-"$ARCH"/livecode default BUILDTYPE=Release -j"$(nproc)"
+
+      # If a tool built during the build crashes (as lc-compile once did on
+      # arm64), rerun the LCB module step under catchsegv for a backtrace
+      - name: Diagnose a crash during the build
+        if: failure() && steps.build.outcome == 'failure'
+        continue-on-error: true
+        working-directory: build-linux-${{ matrix.arch }}/livecode
+        run: |
+          set +e +o pipefail
+          target=out/Release/obj/gen/engine_lcb_modules.cpp
+          seg=$(ls /lib/*/libSegFault.so /lib/libSegFault.so 2>/dev/null | sed -n 1p)
+          echo "== Rerun under libSegFault ($seg)"
+          LD_PRELOAD="$seg" SEGFAULT_SIGNALS="segv bus abrt ill" \
+            make V=1 BUILDTYPE=Release "$target" > "$RUNNER_TEMP/diag.log" 2>&1
+          echo "exit: $?"
+          tail -100 "$RUNNER_TEMP/diag.log"
+          # Symbolised backtrace: rerun the lc-compile command make printed
+          echo "== Rerun under gdb"
+          apt-get install -y --no-install-recommends gdb > /dev/null 2>&1
+          args=$(grep -o '"[^"]*/lc-compile" --bootstrap.*' "$RUNNER_TEMP/diag.log" | sed -n 1p)
+          if [ -n "$args" ]; then
+            eval "set -- $args"
+            (cd ../../engine && gdb -batch -ex run -ex 'bt 25' -ex 'bt -12' \
+               -ex 'info registers pc sp' --args "$@") 2>&1 | tail -80
+          fi
+
+      - name: Verify build output
+        id: verify
+        run: |
+          B="linux-$ARCH-bin"
+          ls -la "$B"
+          missing=0
+          for f in LiveCode-Community standalone-community installer server-community \
+                   revsecurity.so revpdfprinter.so revxml.so revzip.so revdb.so \
+                   dbsqlite.so dbmysql.so dbodbc.so dbpostgresql.so \
+                   lc-compile lc-run; do
+            if [ ! -e "$B/$f" ]; then echo "::error::missing $B/$f"; missing=1; fi
+          done
+          if [ "$ARCH" = x86_64 ] && [ ! -e "$B/revbrowser.so" ]; then
+            echo "::error::missing $B/revbrowser.so"; missing=1
+          fi
+          test -d "$B/packaged_extensions" || { echo "::error::missing $B/packaged_extensions"; missing=1; }
+          test -d "$B/modules/lci" || { echo "::error::missing $B/modules/lci"; missing=1; }
+          [ "$missing" = 0 ]
+          file "$B/LiveCode-Community" "$B/standalone-community"
+          # Save as Standalone only accepts non-PIE engines (deploy_linux.cpp)
+          readelf -h "$B/standalone-community" | grep 'EXEC (Executable file)'
+          # The oldest Linux the header promises is this container's
+          # Ubuntu 20.04: glibc 2.31, the libstdc++ of GCC 10
+          # (GLIBCXX_3.4.28, CXXABI_1.3.12) and its libgcc_s (GCC_7.0.0;
+          # the next versions, GCC_12.0.0 and GCC_13.0.0, hold the _Float16
+          # and __bf16 helpers a link with GCC 12 or newer can take from
+          # libgcc_s). No ELF file of the folder (executables and shared
+          # objects in every subfolder, CEF included; not the .dbg debug
+          # files) may need a newer version of these than that system has,
+          # and each must be for this architecture. Other version needs
+          # (CEF's NSS and ALSA) are only reported. What is linked in this
+          # container cannot need more than it has, so this catches
+          # prebuilt files such as CEF or extension libraries, and a change
+          # of build image. The report lists the highest version each file
+          # needs.
+          python3 tools/ci/check_elf_floor.py "$B" --machine "$ARCH" --exclude '*.dbg' \
+            --max GLIBC=2.31 --max GLIBCXX=3.4.28 --max CXXABI=1.3.12 --max GCC=7.0.0
+
+      - name: Smoke test (server engine)
+        run: |
+          printf '<?lc\nput the version && the buildNumber & return\nput the platform && the processor & return\nput sha1Digest("abc") is not empty & return\n?>\n' > "$RUNNER_TEMP/smoke.lc"
+          ./linux-"$ARCH"-bin/server-community "$RUNNER_TEMP/smoke.lc" | tee "$RUNNER_TEMP/smoke.out"
+          grep -q '^9\.7' "$RUNNER_TEMP/smoke.out"
+
+      # The .dbg files, the debug information that
+      # tools/extract-debug-symbols.sh splits off every binary (about 160 MB
+      # per engine, most of the folder), go into a tarball of their own and
+      # the bin tarball goes without them. Both hold the folder
+      # linux-<arch>-bin, so extracting the symbols over the binaries puts
+      # every .dbg next to its binary, where gdb finds it through the
+      # binary's .gnu_debuglink. xz uses every processor (-T0).
+      #
+      # Neither holds the tools the build makes to build itself, nor their
+      # .dbg files (tools/ci/list_build_tools.py, the rule of the release
+      # archives): gentle-target and reflex-target are GENTLE 97, which may
+      # not be redistributed (THIRD-PARTY-NOTICES.md "GENTLE"), and these
+      # artifacts can be downloaded. Nothing that uses them needs those
+      # tools: the package job's package.py never installs them and
+      # package_dist.py leaves them out, and the IDE compile check below
+      # runs on the build folder itself. The listing at the end is the
+      # guard: no entry named gentle-* or reflex-* may reach either
+      # tarball.
+      - name: Package the bin folder and the debug symbols
+        env:
+          XZ_OPT: -T0
+        run: |
+          B="linux-$ARCH-bin"
+          python3 tools/ci/list_build_tools.py "$B" > "$RUNNER_TEMP/build-tools.list"
+          echo "Left out (the build's own tools): $(tr '\n' ' ' < "$RUNNER_TEMP/build-tools.list")"
+          # (grep -v exits 1 when it selects nothing; the check below reports that)
+          find "$B" -type f -name '*.dbg' | sort | grep -vxF -f "$RUNNER_TEMP/build-tools.list" \
+            > "$RUNNER_TEMP/dbg.list" || true
+          if [ ! -s "$RUNNER_TEMP/dbg.list" ]; then
+            echo "::error::no .dbg files in $B; the build's debug-symbols target makes them"; exit 1
+          fi
+          echo "$(wc -l < "$RUNNER_TEMP/dbg.list") debug symbol files"
+          # (--exclude and -X before the folder: GNU tar applies them to the names after it)
+          tar -cJf "OpenXTalk-Lite-linux-$ARCH-bin.tar.xz" --exclude='*.dbg' -X "$RUNNER_TEMP/build-tools.list" "$B"
+          tar -cJf "OpenXTalk-Lite-linux-$ARCH-symbols.tar.xz" -T "$RUNNER_TEMP/dbg.list"
+          ls -l OpenXTalk-Lite-linux-"$ARCH"-*.tar.xz
+          for t in OpenXTalk-Lite-linux-"$ARCH"-bin.tar.xz OpenXTalk-Lite-linux-"$ARCH"-symbols.tar.xz; do
+            tar -tJf "$t" > "$RUNNER_TEMP/members.txt"
+            if grep -E '(^|/)(gentle|reflex)-' "$RUNNER_TEMP/members.txt"; then
+              echo "::error::$t holds the GENTLE files above, which may not be redistributed"; exit 1
+            fi
+          done
+
+      - name: Upload the bin folder
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenXTalk-Lite-linux-${{ matrix.arch }}-bin
+          path: OpenXTalk-Lite-linux-${{ matrix.arch }}-bin.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+          # The tarball is compressed already
+          compression-level: 0
+
+      - name: Upload the debug symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenXTalk-Lite-linux-${{ matrix.arch }}-symbols
+          path: OpenXTalk-Lite-linux-${{ matrix.arch }}-symbols.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+          # The tarball is compressed already
+          compression-level: 0
+
+      # The IDE compile check (tools/ci/ide-compile-check.livecodescript,
+      # the baseline of tools/ci/ide-compile-baseline.txt plus its Linux
+      # supplement) over the checkout's IDE, run by the development engine
+      # just built, before anything is packaged: run_livecode_check.py
+      # --repo-layout assembles Toolset, Plugins and Extensions from ide/,
+      # ide-support/ and the build's packaged extensions. After the upload,
+      # so a failure here still leaves the build to look at. -ui needs no X
+      # display. python is Python 2 (gyp, config.py); python3 (3.8 on
+      # focal) comes from the first apt step, for the checks.
+      - name: IDE compile check (repository)
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          python3 --version
+          python3 tools/ci/run_livecode_check.py compile --repo-layout --bin "linux-$ARCH-bin" \
+            --log ide-compile-check.log
+
+      # The engine test suites of tests/ (tools/ci/run_engine_tests.py): the
+      # LiveCode Script tests of tests/lcs, each run on its own by the
+      # standalone engine just built, with -ui and a time limit, the
+      # LiveCode Builder tests (each handler in its own lc-run), and the
+      # LiveCode Builder compiler and LiveCode Script parser tests. A
+      # failure that is not in tools/ci/engine-tests-baseline.txt or its
+      # Linux supplement fails the step (a failed test is run once more
+      # first, and one that then passes is only reported as flaky); a
+      # baseline entry that passed is reported, to be removed. The job
+      # summary lists both, the log has every failed test's output. CI is
+      # "true" here, so the tests that act on the desktop run too. --jobs 4:
+      # the tests of four files at a time (the runners have four processors).
+      - name: Engine tests
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 45
+        run: python3 tools/ci/run_engine_tests.py --bin "linux-$ARCH-bin" --jobs 4 --log engine-tests.log
+
+      # The job output built-<arch> (see outputs above): only a leg that
+      # got here packages
+      - name: Record the finished build
+        id: built
+        run: echo "built-$ARCH=true" >> "$GITHUB_OUTPUT"
+
+      # Paths in the workspace: in a container job runner.temp names the
+      # host's folder, which the upload action does not see
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs-linux-${{ matrix.arch }}
+          path: |
+            prebuilt/build/**/config.log
+            prebuilt/build/**/*.log
+            ide-compile-check.log
+            engine-tests.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The 32-bit Linux build: the code of the standalone runtime
+  # Runtime/Linux/x86-32 (the IDE's "Linux" target). The packages take that
+  # runtime from oxt-runtimes-1.15; this build shows that the code builds
+  # and passes its tests as 32-bit code. It is built from this repository
+  # like the legs above and checked the same ways (files,
+  # ELF floor, server engine, IDE compile check, engine tests), but in a
+  # Debian 11 i386 container that the job starts itself
+  # (tools/ci/i386-container.sh): Ubuntu has no i386 images after 18.04,
+  # and GitHub's actions do not run in a 32-bit job container. Debian 11 has
+  # the glibc 2.31 and the GCC 10 libstdc++ of the other legs' Ubuntu 20.04.
+  # There is no CEF, as on arm64 (CEF's 32-bit Linux builds ended with CEF
+  # 101; OpenXTalk Lite 1.15's x86-32 runtime had none either). Outputs: the
+  # artifacts OpenXTalk-Lite-linux-x86-bin and -symbols, as for the other legs;
+  # nothing is packaged.
+  build-x86:
+    name: Build linux-x86
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    env:
+      ARCH: x86
+      MODE: release
+      BUILDTYPE: Release
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Start the i386 container
+        timeout-minutes: 20
+        run: tools/ci/i386-container.sh start
+
+      # As the legs above, with the container's own name and the script
+      # that sets it up
+      - name: Compute the prebuilt libraries cache key
+        id: prebuilt-key
+        run: |
+          scripts=$(cat prebuilt/versions/* prebuilt/scripts/*.sh prebuilt/scripts/*.inc \
+                        prebuilt/build-libraries.sh prebuilt/package-libs.sh \
+                        prebuilt/thirdparty.gyp config/*.gypi tools/ci/i386-container.sh | sha256sum | cut -c1-16)
+          thirdparty=$(git rev-parse HEAD:thirdparty | cut -c1-12)
+          echo "key=prebuilt-linux-${ARCH}-bullseye-${scripts}-${thirdparty}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore prebuilt libraries
+        id: prebuilt-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: prebuilt/packaged
+          key: ${{ steps.prebuilt-key.outputs.key }}
+
+      - name: Build OpenSSL, Curl and ICU from source
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        run: |
+          tools/ci/i386-container.sh run 'cd prebuilt && export PREBUILT_MAKE_JOBS="$(nproc)" &&
+            PREBUILT_BUILD_LIBS="openssl curl icu" ./build-libraries.sh linux x86 &&
+            ./package-libs.sh linux x86 && ls -la packaged'
+
+      - name: Build the Thirdparty libraries from thirdparty/
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        env:
+          PREBUILT_LINUX_LIBS: OpenSSL Curl ICU
+          PREBUILT_SKIP_VERIFY: '1'
+        run: |
+          tools/ci/i386-container.sh run 'cd prebuilt && export PREBUILT_LOCAL_DIR="$PWD/packaged" PREBUILT_MAKE_JOBS="$(nproc)" &&
+            PREBUILT_BUILD_LIBS=thirdparty ./build-libraries.sh linux x86 &&
+            ./package-libs.sh linux x86 && ls -la packaged && (cd packaged && sha256sum *.tar.bz2)'
+
+      - name: Save prebuilt libraries to the cache
+        if: steps.prebuilt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: prebuilt/packaged
+          key: ${{ steps.prebuilt-key.outputs.key }}
+
+      - name: Fetch prebuilt libraries
+        run: |
+          echo "PREBUILT_LOCAL_DIR=$PWD/prebuilt/packaged" >> "$GITHUB_ENV"
+          echo "PREBUILT_SKIP_VERIFY=1" >> "$GITHUB_ENV"
+          tools/ci/i386-container.sh run 'cd prebuilt && PREBUILT_LOCAL_DIR="$PWD/packaged" PREBUILT_SKIP_VERIFY=1 ./fetch-libraries.sh linux x86'
+
+      - name: Configure
+        run: tools/ci/i386-container.sh run 'make config-linux-x86'
+
+      - name: Build
+        run: |
+          tools/ci/i386-container.sh run 'make -C build-linux-x86/livecode LiveCode-all debug-symbols BUILDTYPE=Release -j"$(nproc)" &&
+            make -C build-linux-x86/livecode default BUILDTYPE=Release -j"$(nproc)"'
+
+      # As for the other legs, without revbrowser (no CEF). --machine x86:
+      # every ELF file is i386.
+      - name: Verify build output
+        id: verify
+        run: |
+          tools/ci/i386-container.sh run '
+            B=linux-x86-bin
+            ls -la "$B"
+            missing=0
+            for f in LiveCode-Community standalone-community installer server-community \
+                     revsecurity.so revpdfprinter.so revxml.so revzip.so revdb.so \
+                     dbsqlite.so dbmysql.so dbodbc.so dbpostgresql.so \
+                     lc-compile lc-run; do
+              if [ ! -e "$B/$f" ]; then echo "::error::missing $B/$f"; missing=1; fi
+            done
+            test -d "$B/packaged_extensions" || { echo "::error::missing $B/packaged_extensions"; missing=1; }
+            test -d "$B/modules/lci" || { echo "::error::missing $B/modules/lci"; missing=1; }
+            [ "$missing" = 0 ]
+            file "$B/LiveCode-Community" "$B/standalone-community"
+            readelf -h "$B/standalone-community" | grep "EXEC (Executable file)"
+            python3 tools/ci/check_elf_floor.py "$B" --machine x86 --exclude "*.dbg" \
+              --max GLIBC=2.31 --max GLIBCXX=3.4.28 --max CXXABI=1.3.12 --max GCC=7.0.0'
+
+      - name: Smoke test (server engine)
+        run: |
+          printf '<?lc\nput the version && the buildNumber & return\nput the platform && the processor & return\nput sha1Digest("abc") is not empty & return\n?>\n' > "$RUNNER_TEMP/smoke.lc"
+          tools/ci/i386-container.sh run './linux-x86-bin/server-community "$RUNNER_TEMP/smoke.lc" | tee "$RUNNER_TEMP/smoke.out"'
+          grep -q '^9\.7' "$RUNNER_TEMP/smoke.out"
+          grep -q ' x86$' "$RUNNER_TEMP/smoke.out"
+
+      # As for the other legs (see "Package the bin folder and the debug
+      # symbols" above)
+      - name: Package the bin folder and the debug symbols
+        run: |
+          tools/ci/i386-container.sh run '
+            export XZ_OPT=-T0
+            B=linux-x86-bin
+            python3 tools/ci/list_build_tools.py "$B" > "$RUNNER_TEMP/build-tools.list"
+            echo "Left out (the tools the build makes for itself): $(tr "\n" " " < "$RUNNER_TEMP/build-tools.list")"
+            find "$B" -type f -name "*.dbg" | sort | grep -vxF -f "$RUNNER_TEMP/build-tools.list" \
+              > "$RUNNER_TEMP/dbg.list" || true
+            if [ ! -s "$RUNNER_TEMP/dbg.list" ]; then
+              echo "::error::no .dbg files in $B; the debug-symbols target of the build makes them"; exit 1
+            fi
+            tar -cJf OpenXTalk-Lite-linux-x86-bin.tar.xz --exclude="*.dbg" -X "$RUNNER_TEMP/build-tools.list" "$B"
+            tar -cJf OpenXTalk-Lite-linux-x86-symbols.tar.xz -T "$RUNNER_TEMP/dbg.list"
+            ls -l OpenXTalk-Lite-linux-x86-*.tar.xz
+            for t in OpenXTalk-Lite-linux-x86-bin.tar.xz OpenXTalk-Lite-linux-x86-symbols.tar.xz; do
+              tar -tJf "$t" > "$RUNNER_TEMP/members.txt"
+              if grep -E "(^|/)(gentle|reflex)-" "$RUNNER_TEMP/members.txt"; then
+                echo "::error::$t holds the GENTLE files above, which may not be redistributed"; exit 1
+              fi
+            done'
+
+      - name: Upload the bin folder
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenXTalk-Lite-linux-x86-bin
+          path: OpenXTalk-Lite-linux-x86-bin.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Upload the debug symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: OpenXTalk-Lite-linux-x86-symbols
+          path: OpenXTalk-Lite-linux-x86-symbols.tar.xz
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: IDE compile check (repository)
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          tools/ci/i386-container.sh run 'python3 tools/ci/run_livecode_check.py compile --repo-layout --bin linux-x86-bin \
+            --platform linux-x86 --log ide-compile-check.log'
+
+      # The engine test suites, as for the other legs (with this leg's
+      # baseline supplement engine-tests-baseline-linux-x86.txt, if any)
+      - name: Engine tests
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 45
+        run: |
+          tools/ci/i386-container.sh run 'python3 tools/ci/run_engine_tests.py --bin linux-x86-bin --arch x86 --jobs 4 \
+            --log engine-tests.log'
+
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs-linux-x86
+          path: |
+            prebuilt/build/**/config.log
+            prebuilt/build/**/*.log
+            ide-compile-check.log
+            engine-tests.log
+            standalone-check.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Stop the i386 container
+        if: always()
+        run: tools/ci/i386-container.sh stop
+
+  # The Linux x86_64 package, from the build's artifacts (see the header).
+  # It waits for both build legs (a job cannot need one leg of a matrix)
+  # but runs whenever the x86_64 one passed, so that a failed arm64 build
+  # does not hide the package (and always when the whole build passed,
+  # whatever the outputs say). On the runner itself, not in the build's
+  # container: tests need the ubuntu-24.04 system, the user a package
+  # would find there, and sudo for apt.

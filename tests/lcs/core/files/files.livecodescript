@@ -27,6 +27,9 @@ on TestRegistryKeys
       TestAssert merge("Key [tTestKey]] has right value"), listRegistry(tTestKey) is ("Key1" & return & "Key2")
       TestAssert merge("Key [tTestKey]]Key1 has right value"), listRegistry(tTestKey & "Key1") is "Key1"
       TestAssert merge("Key [tTestKey]]Key2 has right value"), listRegistry(tTestKey & "Key2") is empty
+
+      -- Leave the registry of the computer the tests run on as it was
+      get deleteRegistry("HKEY_CURRENT_USER\Software\LiveCode\tests")
    else
       testSkip
       testSkip
@@ -71,11 +74,19 @@ end TestProcessID
 
 on TestShortFilePath2
    if the platform is "win32" then
-      local tShortFolder, tLongFolder
-      	
-      put the shortfilepath of the defaultFolder into tShortFolder
-      put the longfilepath of the defaultFolder into tLongFolder
+      local tLongFolder, tShortFolder
       
+      // A folder of its own with a long name, in the temporary folder: the
+      // folder the tests run in may be on a volume that has no 8.3 names
+      // (the D: drive of the GitHub runners) and its name may be 8.3 already
+      put specialFolderPath("temporary") & "/OXT short file path test" into tLongFolder
+      if there is not a folder tLongFolder then
+         create folder tLongFolder
+      end if
+      put the shortfilepath of tLongFolder into tShortFolder
+      TestAssert "the folder has a short path:" && the result, tShortFolder is not empty
+      delete folder tLongFolder
+
       // check path components are in 8.3 format
       set the itemdelimiter to "/"
       repeat for each item tPart in tShortFolder
@@ -285,6 +296,15 @@ on TestDeleteFile
 end TestDeleteFile
 
 
+-- TextEdit is in /System/Applications from macOS 10.15 on, in /Applications
+-- (specialFolderPath("apps")) before
+private function __TextEditPath
+   if there is a folder "/System/Applications/TextEdit.app" then
+      return "/System/Applications/TextEdit.app"
+   end if
+   return specialfolderpath("apps") & slash & "TextEdit.app"
+end __TextEditPath
+
 on TestLaunch
    local taskList
    
@@ -303,7 +323,7 @@ on TestLaunch
    else if the platform is "MacOS" then
       put shell("ps -ax") into taskList
       
-      launch (specialfolderpath("apps") & slash & "textEdit.app")
+      launch __TextEditPath()
       
       put shell("ps -ax") into taskList
       
@@ -347,7 +367,7 @@ on TestLaunchWith
       delete file "Test.txt"
    else if the platform is "MacOS" then
       
-      launch "Test.txt" with (specialfolderpath("apps") & slash & "textEdit.app")
+      launch "Test.txt" with __TextEditPath()
       
       put shell("ps -ax") into taskList
       

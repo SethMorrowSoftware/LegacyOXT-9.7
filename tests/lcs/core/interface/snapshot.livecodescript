@@ -60,7 +60,7 @@ on TestImportSnapshotFromObject
     import snapshot from button "b1"
 
     TestAssert "long id of new image is long id of it",  the long id of it is the long id of the last image
-    TestAssertBroken "long id of image is it", it is the long id of the last image
+    TestAssert "long id of image is it", it is the long id of the last image
 end TestImportSnapshotFromObject
 
 on TestImportSnapshotFromRectOfObject
@@ -69,6 +69,6 @@ on TestImportSnapshotFromRectOfObject
    
    import snapshot from rectangle 0,0,100,100 of field "field 1"
    TestAssert "long id of new image is long id of it",  the long id of it is the long id of the last image
-   TestAssertBroken "long id of image is it", it is the long id of the last image
+   TestAssert "long id of image is it", it is the long id of the last image
 end TestImportSnapshotFromRectOfObject
 

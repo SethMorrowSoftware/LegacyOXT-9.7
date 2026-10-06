@@ -1,0 +1,47 @@
+name: Build, CI or packaging problem
+description: The build, a CI check, the packaging or a release of this repository does not work.
+labels: ["build"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository builds, tests and packages Tom Perry's OpenXTalk Lite 1.15 as it is. Use this form when that machinery fails: a build that does not compile, a check that fails for a reason other than Tom Perry's code, a package or release that is wrong.
+
+        A test that fails because of a bug in OpenXTalk Lite 1.15 itself belongs in the baselines (`tools/ci/*-baseline*.txt`), with a comment saying why; its fix belongs in [OXT-Beyond](https://github.com/SethMorrowSoftware/OpenXTalk-Beyond).
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it fail?
+      options:
+        - Windows build (build-windows.yml)
+        - Linux build (build-linux.yml)
+        - macOS build (build-macos.yml)
+        - Pristine guard (pristine-guard.yml)
+        - Release (release.yml, tag-release.yml)
+        - A local build
+    validations:
+      required: true
+
+  - type: input
+    id: run
+    attributes:
+      label: Workflow run or commit
+      description: The link to the failed run, or the commit you built (`git rev-parse --short HEAD`).
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The failing step and the relevant lines of its log or of the job summary.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: What you tried, and whether OXT-Beyond's build of the same step passes.

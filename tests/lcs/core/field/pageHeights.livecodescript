@@ -35,7 +35,9 @@ on TestPageHeights
    set the itemDel to slash
    put item 1 to -2 of the filename of this stack into tFieldContentFilename
    put slash & "_pageHeightsFieldContent.txt" after tFieldContentFilename
-   set the htmlText of field "testPageHeightsField" to url ("file:/"&tFieldContentFilename)
+   -- (a "file:" URL takes a path; "file:/" & a Windows path, "/C:/...", is
+   -- no file)
+   set the htmlText of field "testPageHeightsField" to url ("file:" & tFieldContentFilename)
    
    TestAssert "Field is not empty", field "testPageHeightsField" is not empty
       
@@ -44,7 +46,27 @@ on TestPageHeights
       
    TestAssert "pageHeights is not empty", tObservedPageHeights is not empty
    
-   TestAssert "The number of lines of the pageheights is 24", the number of lines of tObservedPageHeights is 24
+   -- All of the text is in Arial 12, and the pages are made of its lines:
+   -- in a font of other metrics the text wraps elsewhere, and the number of
+   -- pages differs (25 on a Linux with only the DejaVu fonts, all that the
+   -- Linux CI container has). Windows and macOS have Arial; Linux has it
+   -- when it is installed, else fontconfig uses a font with its metrics in
+   -- its place, Liberation Sans or Arimo, when one of these is.
+   TestDiagnostic "pages:" && the number of lines of tObservedPageHeights
+   if the platform is "Linux" and not __HasArialMetrics() then
+      TestSkip "The number of lines of the pageheights is 24", "no font with the metrics of Arial (Arial, Liberation Sans, Arimo) is installed"
+   else
+      TestAssert "The number of lines of the pageheights is 24", the number of lines of tObservedPageHeights is 24
+   end if
    delete field 1
     
 end TestPageHeights
+
+private function __HasArialMetrics
+   repeat for each item tFont in "Arial,Liberation Sans,Arimo"
+      if tFont is among the lines of the fontNames then
+         return true
+      end if
+   end repeat
+   return false
+end __HasArialMetrics

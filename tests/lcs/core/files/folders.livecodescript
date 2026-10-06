@@ -154,6 +154,20 @@ on TestFilesOfTilde
 	TestAssert "files(~) is the same as files($HOME)", files($HOME) is files("~")
 end TestFilesOfTilde
 
+on TestFilesOfTildeUser
+   TestSkipIfNot "platform", "MacOS,Linux"
+   -- "~<user>/" is the home folder of <user>; on Linux the user name used
+   -- to take in the slash ("<user>/"), so such a path never resolved
+   local tUser
+   put $USER into tUser
+   if tUser is empty then
+      put word 1 of shell("id -un") into tUser
+   end if
+   TestAssert "there is a folder ~<user>/", there is a folder ("~" & tUser & "/")
+   TestAssert "files(~<user>/) is the same as files(~<user>)", \
+         files("~" & tUser & "/") is files("~" & tUser)
+end TestFilesOfTildeUser
+
 on TestResolveFolderAlias
     if the platform is "Win32" then
     	local tFolder

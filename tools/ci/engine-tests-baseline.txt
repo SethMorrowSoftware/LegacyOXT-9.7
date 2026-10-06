@@ -1,0 +1,28 @@
+# Engine test suite (tools/ci/run_engine_tests.py): tests known to fail on
+# every platform with Tom Perry's OpenXTalk Lite 1.15 code. Each platform
+# family has a supplement next to this file (engine-tests-baseline-windows.txt,
+# -linux.txt, -mac.txt) with the tests that fail only there.
+#
+# The failures are recorded, not fixed: this repository keeps Tom Perry's
+# code as it is, so a line here is a bug or a limitation of that code (or of
+# LiveCode Community 9.7 under it), or a test that OXT-Beyond added for a fix
+# made there. Say which in a comment above it.
+#
+# One "<suite>: <test>" per line, as the check names failures; "? " before
+# it marks a test that fails only sometimes (its passing is not reported);
+# text after " #" is a comment. Remove a line when its test passes: the
+# check lists the baseline entries that did.
+
+# Each of these is a regression test that OXT-Beyond added for a bug it
+# fixed; Tom Perry's code has the bug. Seen on Linux, Windows and macOS.
+
+# Exporting a widget whose kind is not loaded crashes the engine
+# (OXT-Beyond 860e76d31)
+lcs: core/engine/widget: TestExportWidgetOfKindNotLoaded
+
+# baseConvert wraps a number above 4,294,967,295 instead of failing
+# (OXT-Beyond 8b6a18a52); converting to a base below 2 crashes in LiveCode
+# Builder (a division by zero; OXT-Beyond cc08c7942)
+lcs: core/math/errors: TestBaseConvertError
+lcb: lcb/stdlib/math: TestBaseConvertFromLimits
+lcb: lcb/stdlib/math: TestBaseConvertToInvalidBase

@@ -119,7 +119,6 @@ end setUpValues
 function testString pType,pNumber, pValue
    setupValues
    if pValue is empty then put "string" into pValue   
-   put "String:" && pType, pNumber, pValue && sTestStrings[pType][pNumber][pValue]& return after url ("binfile:" & specialFolderPath("desktop")  & "/log.txt")
    return sTestStrings[pType][pNumber][pValue]
 end testString
 

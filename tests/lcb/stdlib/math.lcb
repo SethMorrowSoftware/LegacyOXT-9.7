@@ -224,9 +224,39 @@ public handler TestBaseConvertFrom()
 	MCUnitTestHandlerThrows(TestBaseConvert_InvalidFormat, "convert from hex (0x)")
 end handler
 
+handler TestBaseConvert_LargerThanInteger() returns LCInt
+	return "80000000" converted from base 16
+end handler
+handler TestBaseConvert_LargerThan32Bits() returns LCInt
+	return "100000000" converted from base 16
+end handler
+public handler TestBaseConvertFromLimits()
+	test "convert from hex (largest integer)" when "7FFFFFFF" converted from base 16 is 2147483647
+	test "convert from hex (smallest integer)" when ("-80000000" converted from base 16) + 1 is -2147483647
+	test "convert to hex (smallest integer)" when ("-80000000" converted from base 16) converted to base 16 is "-80000000"
+
+	MCUnitTestHandlerThrows(TestBaseConvert_LargerThanInteger, "convert from hex (larger than the largest integer)")
+	MCUnitTestHandlerThrows(TestBaseConvert_LargerThan32Bits, "convert from hex (larger than 32 bits)")
+end handler
+
 public handler TestBaseConvertTo()
 	test "convert to binary" when 7 converted to base 2 is "111"
 	test "convert to base 12" when 500 converted to base 12 is "358"
+end handler
+
+handler TestBaseConvert_ToBase0() returns String
+	return 10 converted to base 0
+end handler
+handler TestBaseConvert_ToBase1() returns String
+	return 10 converted to base 1
+end handler
+handler TestBaseConvert_FromBaseToBase1() returns String
+	return "10" converted from base 10 to base 1
+end handler
+public handler TestBaseConvertToInvalidBase()
+	MCUnitTestHandlerThrows(TestBaseConvert_ToBase0, "convert to base 0")
+	MCUnitTestHandlerThrows(TestBaseConvert_ToBase1, "convert to base 1")
+	MCUnitTestHandlerThrows(TestBaseConvert_FromBaseToBase1, "convert from base 10 to base 1")
 end handler
 
 public handler TestBaseConvertBase()
