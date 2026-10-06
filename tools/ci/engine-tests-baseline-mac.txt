@@ -31,8 +31,10 @@ lcb: lcb/vm/foreign-binding: TestForeignBinding_Java
 # Without a user interface a "wait for messages" sleeps until the next
 # timer message: the socket thread's wake-up pipe is not polled on macOS,
 # so libURL's request lasts until its 60-second socket timeout
-# (OXT-Beyond b359fc087)
-lcs: liburl/status_codes: TestStatusCodes
+# (OXT-Beyond b359fc087). Whether a timer message comes in time depends
+# on the machine: it failed on the Apple Silicon runner and passed on the
+# Intel one
+? lcs: liburl/status_codes: TestStatusCodes
 
 # Text compares by the Mac Roman code of a char the engine holds as a
 # native one, and by codepoint otherwise, so sort and < depend on how a
