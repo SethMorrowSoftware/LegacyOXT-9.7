@@ -396,6 +396,17 @@ RULES = _rules()
 MANAGED_EXCLUDE = (
     ('ide/Resources/Mobile Examples/',
      'package.txt Mobile.MacOSX: installed on macOS only'),
+    # In LiveCode's ide/ but not in its packages (builder/package.txt does
+    # not list them; the stock 9.6.3 install has none of them): the IDE's
+    # own test interface and the documentation sources
+    ('ide/Plugins/livecodeTestInterface.livecode',
+     'LiveCode does not package it (package.txt Plugins)'),
+    ('ide/Documentation/Docs Helper.livecode',
+     'LiveCode does not package it (package.txt Documentation)'),
+    ('ide/Documentation/dictionary/',
+     'LiveCode does not package it (package.txt Documentation)'),
+    ('ide/Documentation/specs/',
+     'LiveCode does not package it (package.txt Documentation)'),
 )
 
 # Differences that are expected when a stock LiveCode install is verified

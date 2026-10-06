@@ -1,12 +1,9 @@
 # Known compile errors in the IDE scripts, one per line:
 #   <file> | <object> | line <n> | <message>
-# tools/ci/ide-compile-check.ps1 fails only on errors that are not listed
-# here and reports listed errors that no longer occur. Regenerate with
-#   tools/ci/ide-compile-check.ps1 -Root <installed layout> -UpdateBaseline
+# tools/ci/run_livecode_check.py compile fails only on errors that are not
+# listed here or in the platform's supplement (ide-compile-baseline-<family>.txt),
+# and reports listed errors that no longer occur.
 #
-# These are errors in OpenXTalk Lite 1.15 as Tom Perry left it. They are
-# recorded, not fixed: this repository keeps his code as it is.
-#
-# Errors that occur on one platform only are in ide-compile-baseline-
-# <family>.txt next to this file (-windows, -linux, -mac), which the checks
-# add to this one. None occurs on every platform.
+# These are errors in LiveCode Community 9.7.0-dp-1's IDE as LiveCode left
+# it. They are recorded, not fixed. LiveCode's packaged IDE (what
+# tools/oxt/layout.py assembles, as builder/package.txt lists it) has none.

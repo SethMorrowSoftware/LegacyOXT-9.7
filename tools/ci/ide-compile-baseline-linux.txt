@@ -1,17 +1,2 @@
 # Known compile check errors that occur only on Linux, one per line, in the
-# format of ide-compile-baseline.txt. tools/ci/run_livecode_check.py adds
-# them to the shared baseline when it checks on Linux.
-#
-# Without a user interface (-ui) the Linux engine crashes (SIGSEGV) loading
-# this plugin: its main stack's textFont is "(System)", which
-# MCNewFontlist::getfont (engine/src/lnxflst.cpp) resolves through the GTK
-# theme, and without a screen the theme gives no family name, which the
-# engine then dereferences. OXT-Beyond fixed this in its commit 7ae0d8f0f;
-# here the engine is kept as it is.
-Plugins/Quick Dictionary.livecode | (file) | line 0 | the engine crashed while checking it
-
-# The macOS ARM standalone builder calls "_internal build MacARM", which
-# only Tom Perry's macOS engine has (internal_development.cpp, his macOS
-# version); the Windows version, which Windows and Linux build, does not.
-# Nothing in the IDE opens this stack outside macOS.
-Toolset/palettes/standalone settings/mac-arm-deploy.oxtstack | stack "macOS-ARM standalone builder" > card (id 1002) > button "Build" (id 1009) | line 28 | compile error 494 (near "build")
+# format of ide-compile-baseline.txt; none.
