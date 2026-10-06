@@ -26,3 +26,10 @@ lcs: core/engine/widget: TestExportWidgetOfKindNotLoaded
 lcs: core/math/errors: TestBaseConvertError
 lcb: lcb/stdlib/math: TestBaseConvertFromLimits
 lcb: lcb/stdlib/math: TestBaseConvertToInvalidBase
+
+# LiveCode's checks of its download server (curl -I to downloads.livecode.com
+# for the mergExt and tsNet bundles): they pass while the server answers, which
+# it does not always do for a CI runner (TestTSNetURL failed on the Intel
+# runner of release dry run 37447403857, passed on Apple Silicon)
+? lcs: ext/ext-urls: TestTSNetURL
+? lcs: ext/ext-urls: TestMergExtURL
