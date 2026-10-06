@@ -1,10 +1,68 @@
 {
   "comment": [
     "External archives that tools/oxt/package.py installs into every package (see",
-    "fetch_assets.py). None yet: each package has the standalone runtimes its own",
-    "build makes. The runtimes for the other platforms, which LiveCode's installers",
-    "also carried (Installer/package.txt), are to come from this repository's own",
-    "builds in a runtimes asset (tools/oxt/make_runtimes_asset.py --builds)."
+    "fetch_assets.py), made by .github/workflows/assets.yml from this repository's own",
+    "builds and published as the pre-release assets-<label>: the standalone runtimes",
+    "of the other platforms, which LiveCode's installers also carried",
+    "(Installer/package.txt), and the Dictionary data written by LiveCode's docs builder.",
+    "Each leaves out what a package's own build makes (its \"exclude\")."
   ],
-  "assets": []
+  "assets": [
+    {
+      "id": "legacyoxt-runtimes-9.7.0-dp-1",
+      "url": "https://github.com/SethMorrowSoftware/LegacyOXT-9.7/releases/download/assets-9.7.0-dp-1/legacyoxt-runtimes-9.7.0-dp-1.zip",
+      "sha256": "0cadccb99da92acb901409208db74d2c78a4dbd0af6cbcb22dd62be882b417d3",
+      "size": 208379602,
+      "kind": "zip",
+      "strip": 1,
+      "dest": "",
+      "rename": {
+        "PROVENANCE.md": "PROVENANCE-legacyoxt-runtimes-9.7.0-dp-1.md"
+      },
+      "exclude": {
+        "win-x86_64": [
+          "Runtime/Windows/x86-64/**",
+          "Extensions/com.livecode.library.timezone/code/x86_64-win32/**"
+        ],
+        "linux-x86_64": [
+          "Runtime/Linux/x86-64/**",
+          "Extensions/com.livecode.library.timezone/code/x86_64-linux/**",
+          "Extensions/com.livecode.library.timezone/resources/**"
+        ],
+        "linux-arm64": [
+          "Extensions/com.livecode.library.timezone/resources/**"
+        ],
+        "mac-*": [
+          "Runtime/Mac OS X/**",
+          "Extensions/com.livecode.library.timezone/code/universal-mac-macosx/**",
+          "Extensions/com.livecode.library.timezone/resources/**"
+        ]
+      },
+      "exclude_note": "What each package's own build makes: Windows x86-64 its runtime and the timezone library's code for it; Linux x86-64 the same and the zoneinfo data (tz.gyp target tzdata, which the Windows build does not make); macOS its runtime, its code and the zoneinfo data; Linux arm64 the zoneinfo data.",
+      "description": "Standalone runtimes for the platforms other than the package's own, built from LiveCode's source in this repository (commit 62ad176086f6): Windows x86-64, Linux x86-32 and x86-64 and macOS (universal) engines with their externals, the timezone library's code for them and its zoneinfo data. See PROVENANCE.md in the archive.",
+      "licence": "GPL-3.0 with the exception in LICENSE-EXCEPTION.md (LiveCode Community); CEF: BSD-3-Clause with Chromium's licences; IANA tz data: public domain; see PROVENANCE.md",
+      "source": "LegacyOXT's CI builds win-x86_64, linux-x86, linux-x86_64 and mac-universal of commit 62ad176086f68758d9066da37d79568a6055d8bf, made with tools/oxt/make_runtimes_asset.py --builds"
+    },
+    {
+      "id": "legacyoxt-docs-9.7.0-dp-1",
+      "url": "https://github.com/SethMorrowSoftware/LegacyOXT-9.7/releases/download/assets-9.7.0-dp-1/legacyoxt-docs-9.7.0-dp-1.zip",
+      "sha256": "4487456636296fb0adbd7111a871e173c746be21f09fdce7c655671dfdde6df7",
+      "size": 3311989,
+      "kind": "zip",
+      "strip": 1,
+      "dest": "",
+      "rename": {
+        "PROVENANCE.md": "PROVENANCE-legacyoxt-docs-9.7.0-dp-1.md"
+      },
+      "exclude": {
+        "linux-x86_64": [
+          "Documentation/html_viewer/resources/data/**"
+        ]
+      },
+      "exclude_note": "The Linux package builds the documentation data itself (tools/ci/build_docs.sh).",
+      "description": "The IDE's documentation data (the Dictionary and the guides), written by LiveCode's docs builder with an engine built from this repository (commit 62ad176086f6). See PROVENANCE.md in the archive.",
+      "licence": "GPL-3.0 (LiveCode Community's documentation)",
+      "source": "LegacyOXT's CI (tools/ci/build_docs.sh) at commit 62ad176086f68758d9066da37d79568a6055d8bf, made with tools/oxt/make_docs_asset.py"
+    }
+  ]
 }
