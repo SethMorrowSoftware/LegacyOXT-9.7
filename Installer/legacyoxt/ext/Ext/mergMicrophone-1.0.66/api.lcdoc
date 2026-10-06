@@ -1,0 +1,500 @@
+Library: mergMicrophone
+
+type: library
+
+Description:
+mergMicrophone is a basic
+wrapper around the iOS AVAudioRecorder class, enabling audio recording
+to be performed in iOS applications. It is a modified version of
+rremicrophone which is provided as part of the LiveCode SDK. The
+rremicrophone license requires modified source versions to be
+distributed without the rre handler prefix or com_runrev class prefix.
+The changes ar licensed under the extremely permissive Boost Software
+License http://www.boost.org/LICENSE_1_0.txt 
+
+
+
+
+Tags: Externals
+Name: mergMicrophoneIsAvailable
+
+Type: function
+
+Syntax: mergMicrophoneIsAvailable()
+
+Summary:  This handler returns true if there is a microphone available to use
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Returns: boolean
+
+
+
+Name: mergMicrophoneSetNumberOfChannels
+
+Type: command
+
+Syntax: mergMicrophoneSetNumberOfChannels <channelCount>
+
+Summary:  Set the number of channels to record (either mono - 1 channel, or
+stereo - 2 channels) 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ Setting the number of channels only has effect the next time recording
+is started. 
+
+
+
+Parameters:
+channelCount: 
+ - Mono
+ - Stereo
+
+
+
+
+
+
+Name: mergMicrophoneGetNumberOfChannels
+
+Type: function
+
+Syntax: mergMicrophoneGetNumberOfChannels()
+
+Summary:  Get the number of channels to record (either mono - 1 channel, or
+stereo - 2 channels) 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Returns: number-of-channels-enum
+
+
+
+Name: mergMicrophoneSetSampleRate
+
+Type: command
+
+Syntax: mergMicrophoneSetSampleRate <sampleRate>
+
+Summary:  Set the sample rate measure in hertz (number of samples to take per
+second - 44100 is CD quality) 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ Setting the sample rate only has effect the next time recording is
+started. 
+
+
+
+Parameters:
+sampleRate: 
+
+
+
+
+Name: mergMicrophoneGetSampleRate
+
+Type: function
+
+Syntax: mergMicrophoneGetSampleRate()
+
+Summary:  Get the sample rate measure in hertz (number of samples to take per
+second - 44100 is CD quality) 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Returns: real
+
+
+
+Name: mergMicrophoneSetAudioFormat
+
+Type: command
+
+Syntax: mergMicrophoneSetAudioFormat <formatName>
+
+Summary:  Set the audio format to output
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ Setting the audio format only has effect the next time recording is
+started. 
+
+
+
+Parameters:
+formatName: 
+ - Linear PCM
+ - Apple Lossless
+ - MP4-AAC
+ - iLBC
+
+
+
+
+
+
+Name: mergMicrophoneGetAudioFormat
+
+Type: function
+
+Syntax: mergMicrophoneGetAudioFormat()
+
+Summary:  Get the audio format to output
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Returns: audio-format-enum
+
+
+
+Name: mergMicrophoneSetTargetBitRate
+
+Type: command
+
+Syntax: mergMicrophoneSetTargetBitRate <bitRate>
+
+Summary:  Set the target bit rate to use formats that have such a notion
+specified in combined (all changes) bits per second 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ Setting the target bit rate only has effect the next time recording is
+started. 
+
+
+
+Parameters:
+bitRate: 
+
+
+
+
+Name: mergMicrophoneGetTargetBitRate
+
+Type: function
+
+Syntax: mergMicrophoneGetTargetBitRate()
+
+Summary:  Get the target bit rate to use formats that have such a notion
+specified in combined (all changes) bits per second 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ 
+
+
+
+Returns: integer
+
+
+
+Name: mergMicrophoneSetAudioQuality
+
+Type: command
+
+Syntax: mergMicrophoneSetAudioQuality <audioQuality>
+
+Summary:  Set the audio quality level to use when encoding
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ Setting the audio quality only has effect the next time recording is
+started. 
+
+
+
+Parameters:
+audioQuality: 
+ - Min
+ - Low
+ - Medium
+ - High
+ - Max
+
+
+
+
+
+
+Name: mergMicrophoneGetAudioQuality
+
+Type: function
+
+Syntax: mergMicrophoneGetAudioQuality()
+
+Summary:  Get the audio quality level to use when encoding
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Returns: audio-quality-enum
+
+
+
+Name: mergMicrophoneStartRecording
+
+Type: command
+
+Syntax: mergMicrophoneStartRecording <filename>
+
+Summary:  This handler starts recording audio using any previously configured
+settings to the given output file 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ If audio recording has already been started, then 'already recording'
+is returned in the result. If recording could not be started, then
+'recording failed' is returned in the result. If recording is
+successfully started, the result is empty. 
+
+
+
+Parameters:
+filename: 
+Returns: recording-status-enum
+
+
+
+Name: mergMicrophoneStopRecording
+
+Type: command
+
+Syntax: mergMicrophoneStopRecording 
+
+Summary:  This handler stop any current recording operation
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+Description: 
+ If audio recording is not currently in progress, then 'not recording'
+is returned in the result. If finishing record failed, then 'recording
+failed' is returned in the result. If recording successfully finished,
+the result is empty. 
+
+
+
+Returns: recording-status-enum
+
+
+
+Name: mergMicrophoneIsRecording
+
+Type: function
+
+Syntax: mergMicrophoneIsRecording()
+
+Summary:  This handler returns true if recording is currently in progress and
+false if it is not 
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Returns: boolean
+
+
+
+Name: mergMicrophoneAveragePower
+
+Type: function
+
+Syntax: mergMicrophoneAveragePower([<pChannel>])
+
+Summary:  Return the average power reading in decibels
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Parameters:
+pChannel: (optional with 0 default)  The channel who's power you need to
+return. In most cases the default channel of 0 will be what you want
+(iPhones only record in mono unless they have a mic accessory. 
+Returns:  The average power reading in decibels. Usually between -160
+(min) and 0 (max) but may be positive in some circumstances. 
+
+
+
+Name: mergMicrophonePeakPower
+
+Type: function
+
+Syntax: mergMicrophonePeakPower([<pChannel>])
+
+Summary:  Return the peak power reading in decibels
+
+Introduced: 8.0
+
+OS: ios,mac
+
+Platforms: desktop,mobile
+
+Edition: Community
+
+
+
+
+
+
+
+Parameters:
+pChannel: (optional with 0 default)  The channel who's power you need to
+return. In most cases the default channel of 0 will be what you want
+(iPhones only record in mono unless they have a mic accessory. 
+Returns:  The peak power reading in decibels. Usually between -160 (min)
+and 0 (max) but may be positive in some circumstances. 
+
+
+

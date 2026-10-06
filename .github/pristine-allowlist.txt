@@ -13,3 +13,4 @@ tools/ci/**
 tools/oxt/**
 tests/**
 CHANGES-FROM-LIVECODE.md
+Installer/legacyoxt/**

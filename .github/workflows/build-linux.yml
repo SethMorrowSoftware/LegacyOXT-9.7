@@ -1,62 +1,56 @@
-# Builds OpenXTalk Lite 1.15 (Tom Perry's source, his Windows and macOS
-# working copies merged at the tag tom-perry-1.15-merged, with the build
-# changes after it; CHANGES-FROM-TOM.md lists them) for Linux x86_64, arm64 and x86 on
+# Builds LiveCode Community 9.7.0-dp-1 (LiveCode's source at the tag
+# livecode-9.7.0-dp-1, with the build changes after it;
+# CHANGES-FROM-LIVECODE.md lists them) for Linux x86_64, arm64 and x86 on
 # GitHub-hosted runners, checks it and packages the x86_64 build. Adapted
-# from OXT-Beyond's workflow of the same name; see README.md.
+# from OpenXTalk-Lite-1.15's workflow of the same name.
 #
 # The x86_64 and arm64 builds run in an Ubuntu 20.04 container, the x86 one
 # in a Debian 11 i386 container (tools/ci/i386-container.sh): glibc 2.31
 # and GCC 10's libstdc++ are the oldest the binaries need (the Verify step
 # checks every ELF file with tools/ci/check_elf_floor.py), and Ubuntu 20.04
-# still has the Python 2.7 that gyp and config.py need. Tom Perry's Linux
-# 1.15 source is not imported yet, so these builds are of the merged
-# Windows and macOS tree, with OXT-Beyond's Linux port of the build files.
+# still has the Python 2.7 that gyp and config.py need.
 #
 # Prebuilt libraries: LiveCode's download server no longer serves them, so
-# they are built here from the versions pinned in prebuilt/versions (the
-# ones Tom Perry's tree pins, except OpenSSL 1.1.1w for 1.1.1g; see the
-# commit that changed it) with the scripts in prebuilt/, and kept in the
-# GitHub Actions cache:
+# they are built here from the versions pinned in prebuilt/versions
+# (OpenSSL 1.1.1w for LiveCode's 1.1.1g; see CHANGES-FROM-LIVECODE.md) with
+# the scripts in prebuilt/, and kept in the GitHub Actions cache:
 #   OpenSSL, Curl, ICU  prebuilt/scripts/build-{openssl,curl,icu}.sh
 #   CEF (x86_64 only)   Spotify's CEF build, repackaged by build-cef.sh
 #   Thirdparty          the vendored thirdparty/ sources, built by gyp
 #
-# Each build uploads its build output (OpenXTalk-Lite-linux-<arch>-bin, a
-# tar.xz without the debug symbols and without the tools the build makes to
-# build itself, GENTLE among them) and its debug symbols
-# (OpenXTalk-Lite-linux-<arch>-symbols), then runs the IDE compile check on
-# the checkout's IDE and the engine test suites of tests/. A failure that
-# is not in the baselines (tools/ci/*-baseline*.txt, which record how Tom
-# Perry's code behaves) fails the job.
+# Each build uploads its build output (LegacyOXT-linux-<arch>-bin, a tar.xz
+# without the debug symbols and without the tools the build makes to build
+# itself, GENTLE among them) and its debug symbols
+# (LegacyOXT-linux-<arch>-symbols), then runs the IDE compile check on the
+# checkout's IDE and the engine test suites of tests/. A failure that is
+# not in the baselines (tools/ci/*-baseline*.txt, which record how
+# LiveCode's code behaves) fails the job.
 #
 # The job "Package linux-x86_64" makes the Linux package from the x86_64
 # build's artifacts, on a plain ubuntu-24.04 runner, tests it as users get
-# it (smoke test, IDE compile check through the launcher, standalones,
-# browser and player, system libraries, desktop entry, install scripts) and
-# uploads, as the artifact OpenXTalk-Lite-linux-x86_64:
+# it (smoke test, IDE compile check, standalones, browser and player,
+# system libraries, install scripts and desktop entry) and uploads, as the
+# artifact LegacyOXT-linux-x86_64:
 #
-#   OpenXTalk-Lite-<ver>-linux-x86_64.tar.xz           the program folder,
-#                                                       with the launcher
-#                                                       openxtalk-lite and
-#                                                       install.sh
-#   OpenXTalk-Lite-<ver>-linux-x86_64-binaries.tar.xz  the build output
-#   OpenXTalk-Lite-<ver>-linux-x86_64-symbols.tar.xz   the *.dbg files
+#   LegacyOXT-<ver>-linux-x86_64.tar.xz           the program folder: LiveCode's
+#                                                  layout, with the engine
+#                                                  "LiveCode Community.x86_64",
+#                                                  install.sh and uninstall.sh
+#   LegacyOXT-<ver>-linux-x86_64-binaries.tar.xz  the build output
+#   LegacyOXT-<ver>-linux-x86_64-symbols.tar.xz   the *.dbg files
 #   SHA256SUMS
 #
-# The standalone runtimes for other platforms come from the external asset
-# oxt-runtimes-1.15 (OpenXTalk Lite 1.15's own). Every check after the
-# build or the packaging runs even when an earlier check failed, so that a
-# run reports all of them.
+# Every check after the build or the packaging runs even when an earlier
+# check failed, so that a run reports all of them.
 #
 # Version: <ver> is BUILD_SHORT_VERSION in the file version, LiveCode's
-# 9.7.0-dp-1. Releases are
-# tagged v<ver>-r<n>, the nth release built from this repository; a tag
-# build of any other "v" tag fails straight away. OXT_BUILD_NUMBER is the
-# input build-number when release.yml gives one, else the UTC time as
-# YYYYMMDDHHMM.
+# 9.7.0-dp-1. Releases are tagged v<ver>-r<n>, the nth release built from
+# this repository; a tag build of any other "v" tag fails straight away.
+# OXT_BUILD_NUMBER is the input build-number when release.yml gives one,
+# else the UTC time as YYYYMMDDHHMM.
 #
 # Releases: .github/workflows/release.yml calls this workflow (workflow_call)
-# and publishes the artifact OpenXTalk-Lite-linux-x86_64 with the other
+# and publishes the artifact LegacyOXT-linux-x86_64 with the other
 # platforms' packages.
 
 name: Build (Linux)
@@ -389,10 +383,10 @@ jobs:
           fi
           echo "$(wc -l < "$RUNNER_TEMP/dbg.list") debug symbol files"
           # (--exclude and -X before the folder: GNU tar applies them to the names after it)
-          tar -cJf "OpenXTalk-Lite-linux-$ARCH-bin.tar.xz" --exclude='*.dbg' -X "$RUNNER_TEMP/build-tools.list" "$B"
-          tar -cJf "OpenXTalk-Lite-linux-$ARCH-symbols.tar.xz" -T "$RUNNER_TEMP/dbg.list"
-          ls -l OpenXTalk-Lite-linux-"$ARCH"-*.tar.xz
-          for t in OpenXTalk-Lite-linux-"$ARCH"-bin.tar.xz OpenXTalk-Lite-linux-"$ARCH"-symbols.tar.xz; do
+          tar -cJf "LegacyOXT-linux-$ARCH-bin.tar.xz" --exclude='*.dbg' -X "$RUNNER_TEMP/build-tools.list" "$B"
+          tar -cJf "LegacyOXT-linux-$ARCH-symbols.tar.xz" -T "$RUNNER_TEMP/dbg.list"
+          ls -l LegacyOXT-linux-"$ARCH"-*.tar.xz
+          for t in LegacyOXT-linux-"$ARCH"-bin.tar.xz LegacyOXT-linux-"$ARCH"-symbols.tar.xz; do
             tar -tJf "$t" > "$RUNNER_TEMP/members.txt"
             if grep -E '(^|/)(gentle|reflex)-' "$RUNNER_TEMP/members.txt"; then
               echo "::error::$t holds the GENTLE files above, which may not be redistributed"; exit 1
@@ -402,8 +396,8 @@ jobs:
       - name: Upload the bin folder
         uses: actions/upload-artifact@v7
         with:
-          name: OpenXTalk-Lite-linux-${{ matrix.arch }}-bin
-          path: OpenXTalk-Lite-linux-${{ matrix.arch }}-bin.tar.xz
+          name: LegacyOXT-linux-${{ matrix.arch }}-bin
+          path: LegacyOXT-linux-${{ matrix.arch }}-bin.tar.xz
           if-no-files-found: error
           retention-days: 30
           # The tarball is compressed already
@@ -412,8 +406,8 @@ jobs:
       - name: Upload the debug symbols
         uses: actions/upload-artifact@v7
         with:
-          name: OpenXTalk-Lite-linux-${{ matrix.arch }}-symbols
-          path: OpenXTalk-Lite-linux-${{ matrix.arch }}-symbols.tar.xz
+          name: LegacyOXT-linux-${{ matrix.arch }}-symbols
+          path: LegacyOXT-linux-${{ matrix.arch }}-symbols.tar.xz
           if-no-files-found: error
           retention-days: 30
           # The tarball is compressed already
@@ -475,9 +469,8 @@ jobs:
           retention-days: 14
 
   # The 32-bit Linux build: the code of the standalone runtime
-  # Runtime/Linux/x86-32 (the IDE's "Linux" target). The packages take that
-  # runtime from oxt-runtimes-1.15; this build shows that the code builds
-  # and passes its tests as 32-bit code. It is built from this repository
+  # Runtime/Linux/x86-32 (the IDE's "Linux" target); this build shows that
+  # the code builds and passes its tests as 32-bit code. It is built from this repository
   # like the legs above and checked the same ways (files,
   # ELF floor, server engine, IDE compile check, engine tests), but in a
   # Debian 11 i386 container that the job starts itself
@@ -485,8 +478,8 @@ jobs:
   # and GitHub's actions do not run in a 32-bit job container. Debian 11 has
   # the glibc 2.31 and the GCC 10 libstdc++ of the other legs' Ubuntu 20.04.
   # There is no CEF, as on arm64 (CEF's 32-bit Linux builds ended with CEF
-  # 101; OpenXTalk Lite 1.15's x86-32 runtime had none either). Outputs: the
-  # artifacts OpenXTalk-Lite-linux-x86-bin and -symbols, as for the other legs;
+  # 101). Outputs: the
+  # artifacts LegacyOXT-linux-x86-bin and -symbols, as for the other legs;
   # nothing is packaged.
   build-x86:
     name: Build linux-x86
@@ -606,10 +599,10 @@ jobs:
             if [ ! -s "$RUNNER_TEMP/dbg.list" ]; then
               echo "::error::no .dbg files in $B; the debug-symbols target of the build makes them"; exit 1
             fi
-            tar -cJf OpenXTalk-Lite-linux-x86-bin.tar.xz --exclude="*.dbg" -X "$RUNNER_TEMP/build-tools.list" "$B"
-            tar -cJf OpenXTalk-Lite-linux-x86-symbols.tar.xz -T "$RUNNER_TEMP/dbg.list"
-            ls -l OpenXTalk-Lite-linux-x86-*.tar.xz
-            for t in OpenXTalk-Lite-linux-x86-bin.tar.xz OpenXTalk-Lite-linux-x86-symbols.tar.xz; do
+            tar -cJf LegacyOXT-linux-x86-bin.tar.xz --exclude="*.dbg" -X "$RUNNER_TEMP/build-tools.list" "$B"
+            tar -cJf LegacyOXT-linux-x86-symbols.tar.xz -T "$RUNNER_TEMP/dbg.list"
+            ls -l LegacyOXT-linux-x86-*.tar.xz
+            for t in LegacyOXT-linux-x86-bin.tar.xz LegacyOXT-linux-x86-symbols.tar.xz; do
               tar -tJf "$t" > "$RUNNER_TEMP/members.txt"
               if grep -E "(^|/)(gentle|reflex)-" "$RUNNER_TEMP/members.txt"; then
                 echo "::error::$t holds the GENTLE files above, which may not be redistributed"; exit 1
@@ -619,8 +612,8 @@ jobs:
       - name: Upload the bin folder
         uses: actions/upload-artifact@v7
         with:
-          name: OpenXTalk-Lite-linux-x86-bin
-          path: OpenXTalk-Lite-linux-x86-bin.tar.xz
+          name: LegacyOXT-linux-x86-bin
+          path: LegacyOXT-linux-x86-bin.tar.xz
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
@@ -628,8 +621,8 @@ jobs:
       - name: Upload the debug symbols
         uses: actions/upload-artifact@v7
         with:
-          name: OpenXTalk-Lite-linux-x86-symbols
-          path: OpenXTalk-Lite-linux-x86-symbols.tar.xz
+          name: LegacyOXT-linux-x86-symbols
+          path: LegacyOXT-linux-x86-symbols.tar.xz
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
@@ -649,6 +642,17 @@ jobs:
         run: |
           tools/ci/i386-container.sh run 'python3 tools/ci/run_engine_tests.py --bin linux-x86-bin --arch x86 --jobs 4 \
             --log engine-tests.log'
+
+      # A standalone built from this build's runtime (standalone-community)
+      # by its development engine, as the IDE's builder does at its core
+      # ("_internal deploy linux"), then run in the container
+      # (tools/ci/standalone_check.py)
+      - name: Standalone check (build output)
+        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        timeout-minutes: 15
+        run: |
+          tools/ci/i386-container.sh run 'python3 tools/ci/standalone_check.py --engine linux-x86-bin/LiveCode-Community \
+            --runtime linux-x86-bin/standalone-community --platform linux-x86 --log standalone-check.log'
 
       - name: Upload build logs
         if: failure()
@@ -675,3 +679,234 @@ jobs:
   # whatever the outputs say). On the runner itself, not in the build's
   # container: tests need the ubuntu-24.04 system, the user a package
   # would find there, and sudo for apt.
+  package:
+    name: Package linux-x86_64
+    needs: build
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.outputs.built-x86_64 == 'true') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Not in a folder named *-bin or _build: nothing here should look
+      # like a build output folder (see "Extract the package" below)
+      - name: Download the build
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-linux-x86_64-bin
+          path: ${{ runner.temp }}/ci-build
+
+      - name: Download the debug symbols
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-linux-x86_64-symbols
+          path: ${{ runner.temp }}/ci-symbols
+
+      # The runtime libraries the package needs, from the list that the
+      # library check uses (tools/ci/linux-libraries.txt: every "core", "gui" and
+      # "browser" library, so that the engine, the IDE's GUI libraries and
+      # CEF all resolve for ldd), and desktop-file-utils for
+      # desktop-file-validate and update-desktop-database. Ubuntu 24.04
+      # renamed some of the packages for the 64-bit time_t transition
+      # (libasound2t64, which apt does not find by its old name), so the
+      # name with "t64" is used where there is such a package.
+      - name: Install the runtime libraries and desktop tools
+        run: |
+          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-oxt-retries > /dev/null
+          sudo apt-get update
+          # mplayer, Xvfb and xauth: the browser and player check
+          pkgs=(desktop-file-utils shared-mime-info xz-utils mplayer xvfb xauth)
+          while read -r soname use deb rpm rest; do
+            case $soname in ''|'#'*) continue ;; esac
+            if apt-cache show --no-all-versions "${deb}t64" > /dev/null 2>&1; then
+              deb="${deb}t64"
+            fi
+            case " ${pkgs[*]} " in *" $deb "*) ;; *) pkgs+=("$deb") ;; esac
+          done < tools/ci/linux-libraries.txt
+          echo "Installing: ${pkgs[*]}"
+          # (sudo does not pass the job's environment on)
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
+          python3 --version
+          ldd --version | sed -n 1p
+
+      # The same cache as build-windows.yml (see there): the external
+      # assets' archives. The cache version includes the runner's OS, so
+      # these entries are Linux's own.
+      - name: Restore cached external assets
+        id: assets-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: prebuilt/fetched-assets/*.zip
+          key: oxt-external-assets-${{ hashFiles('tools/oxt/external-assets.json') }}
+
+      # Stages the program folder in $RUNNER_TEMP/stage/LegacyOXT-<ver>
+      # (package.py --bin-tar extracts the build tarball itself, keeping
+      # modes and links) and writes the three archives and SHA256SUMS to
+      # dist/ (package_dist.py; the symbols come from the symbols artifact).
+      # The build number is release.yml's input (the build job checked it),
+      # else the time packaging starts. Release builds (a tag, or the input
+      # release) never leave anything out.
+      - name: Package
+        id: package
+        timeout-minutes: 45
+        env:
+          OXT_ASSETS_CACHE: ${{ github.workspace }}/prebuilt/fetched-assets
+          NO_EXTERNAL_ASSETS: ${{ github.ref_type != 'tag' && !inputs.release && (inputs.no_external_assets == true || vars.OXT_NO_EXTERNAL_ASSETS == '1') }}
+          BUILD_NUMBER_INPUT: ${{ inputs.build-number }}
+          BIN_TAR: ${{ runner.temp }}/ci-build/LegacyOXT-linux-x86_64-bin.tar.xz
+          SYMBOLS_TAR: ${{ runner.temp }}/ci-symbols/LegacyOXT-linux-x86_64-symbols.tar.xz
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          for f in "$BIN_TAR" "$SYMBOLS_TAR"; do
+            if [ ! -f "$f" ]; then echo "::error::$f is not in the downloaded artifact"; ls -laR "$RUNNER_TEMP"/ci-*; exit 1; fi
+          done
+          OXT_BUILD_NUMBER=${BUILD_NUMBER_INPUT:-$(date -u +%Y%m%d%H%M)}
+          export OXT_BUILD_NUMBER
+          # LiveCode's packages have no xTalk Suite extensions
+          args=(--no-xtalk-extensions)
+          if [ "$NO_EXTERNAL_ASSETS" = true ]; then
+            echo "::warning title=Package::External assets left out (no_external_assets input or OXT_NO_EXTERNAL_ASSETS variable): the package has no standalone runtimes for other platforms."
+            args+=(--no-external-assets)
+          fi
+          python3 tools/oxt/package.py --platform linux-x86_64 --bin-tar "$BIN_TAR" \
+            --out "$RUNNER_TEMP/stage" --summary-json "$RUNNER_TEMP/stage-summary.json" "${args[@]}" \
+            2>&1 | tee "$RUNNER_TEMP/logs/package.log"
+          python3 tools/oxt/package_dist.py --summary "$RUNNER_TEMP/stage-summary.json" \
+            --bin-tar "$BIN_TAR" --symbols-tar "$SYMBOLS_TAR" --out dist \
+            2>&1 | tee -a "$RUNNER_TEMP/logs/package.log"
+
+      - name: Save external assets to the cache
+        if: always() && steps.assets-cache.outputs.cache-hit != 'true' && hashFiles('prebuilt/fetched-assets/*.zip') != ''
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: prebuilt/fetched-assets/*.zip
+          key: ${{ steps.assets-cache.outputs.cache-primary-key }}
+
+      # As a user does: tar -xJf into an ordinary folder. A folder named
+      # _build or *-bin on the way would make the engine run the IDE of a
+      # source checkout (repository mode), so the tests run here, never
+      # from the stage or the build.
+      - name: Extract the package to a neutral folder
+        id: extract
+        env:
+          PACKAGE: ${{ steps.package.outputs.package }}
+          PACKAGE_ROOT: ${{ steps.package.outputs.package-root }}
+        run: |
+          (cd dist && sha256sum -c SHA256SUMS)
+          tar -tJf "$PACKAGE" > "$RUNNER_TEMP/package-files.txt"
+          tops=$(cut -d/ -f1 "$RUNNER_TEMP/package-files.txt" | sort -u)
+          if [ "$tops" != "$PACKAGE_ROOT" ]; then
+            echo "::error::$PACKAGE must hold the one folder $PACKAGE_ROOT, not: $tops"; exit 1
+          fi
+          # No folder or file named _build or *-bin anywhere in it
+          # (package_dist.py refuses the exact repository-mode names; this
+          # is the wider rule)
+          if grep -E '(^|/)(_build|[^/]*-bin)(/|$)' "$RUNNER_TEMP/package-files.txt"; then
+            echo "::error::$PACKAGE has the paths above, named _build or *-bin"; exit 1
+          fi
+          test_dir="$RUNNER_TEMP/oxt-test"
+          rm -rf "$test_dir"
+          mkdir -p "$test_dir"
+          tar -xJf "$PACKAGE" -C "$test_dir"
+          root="$test_dir/$PACKAGE_ROOT"
+          for f in "LiveCode Community.x86_64" install.sh uninstall.sh; do
+            if [ ! -x "$root/$f" ]; then echo "::error::$PACKAGE: $f is missing or not executable"; exit 1; fi
+          done
+          ls -la "$root"
+          echo "OXT_ROOT=$root" >> "$GITHUB_ENV"
+
+      # The engine itself, headless: script engine, ICU, OpenSSL, SQLite,
+      # revXML, revZip, and every bundled xTalk extension loaded and called
+      # (run_livecode_check.py extracts the tarball again, to its own
+      # neutral folder)
+      - name: Smoke test (package, headless)
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' }}
+        timeout-minutes: 15
+        env:
+          PACKAGE: ${{ steps.package.outputs.package }}
+        run: |
+          python3 tools/ci/run_livecode_check.py smoke --package "$PACKAGE" --platform linux-x86_64 \
+            --log "$RUNNER_TEMP/logs/smoke-test.log"
+
+      # Every IDE script of the extracted package, compiled by its engine
+      - name: IDE compile check (package)
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          python3 tools/ci/run_livecode_check.py compile --install "$OXT_ROOT" \
+            --platform linux-x86_64 --log "$RUNNER_TEMP/logs/ide-compile-check.log"
+
+      # A standalone built from each runtime of the package (Linux x86-64
+      # and x86, Windows x86-64 and x86) by its engine, as the IDE's builder
+      # does at its core ("_internal deploy"); the Linux x86-64 one is run,
+      # the others checked as files of their format and architecture. Each
+      # runtime folder's binaries are checked first
+      # (tools/ci/standalone_check.py)
+      - name: Standalone check
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' }}
+        timeout-minutes: 15
+        run: |
+          python3 tools/ci/standalone_check.py --install "$OXT_ROOT" --platform linux-x86_64 --targets all \
+            --log "$RUNNER_TEMP/logs/standalone-check.log"
+
+      # The browser widget, revBrowser (CEF) and the player (mplayer) in a
+      # standalone of the package, with a screen (Xvfb): a page loads and
+      # its JavaScript calls back into the script, a WAV and an MP4 file
+      # play, pause and end, and the player's controller plays, pauses and
+      # seeks when clicked (tools/ci/media_check.py; the snapshots of the
+      # controller go with the logs)
+      - name: Browser and player check
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' }}
+        timeout-minutes: 10
+        run: |
+          python3 tools/ci/media_check.py --install "$OXT_ROOT" --platform linux-x86_64 \
+            --log "$RUNNER_TEMP/logs/media-check.log" --snapshots "$RUNNER_TEMP/logs/media-snapshots"
+
+      # ldd over every x86_64 ELF file of the package (engine, externals,
+      # CEF and its helpers, toolchain, extension libraries): nothing "not
+      # found" now that the list's packages are installed, and every
+      # library they need (DT_NEEDED) or the engine loads with dlopen
+      # (engine/src/linux.stubs) is in tools/ci/linux-libraries.txt, the base system
+      # or the package
+      - name: Check the system libraries (ldd and the list)
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' }}
+        run: |
+          python3 tools/ci/check_linux_libraries.py --root "$OXT_ROOT" --repo . \
+            --json "$RUNNER_TEMP/logs/linux-libraries.json"
+
+      # install.sh and uninstall.sh in scratch home folders, as a user runs
+      # them: the files they add and remove, LiveCode's desktop entry as
+      # installed (desktop-file-validate), and the installed engine started
+      # through the entry's Exec line (tools/ci/test_linux_install.py)
+      - name: Test the install scripts and the desktop entry
+        if: ${{ !cancelled() && steps.extract.outcome == 'success' }}
+        timeout-minutes: 30
+        run: |
+          python3 tools/ci/test_linux_install.py --root "$OXT_ROOT" --require-desktop-tools \
+            2>&1 | tee "$RUNNER_TEMP/logs/test-linux-install.log"
+
+      - name: Upload the package
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: LegacyOXT-linux-x86_64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+          # The files are compressed already
+          compression-level: 0
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-logs-linux-x86_64
+          path: ${{ runner.temp }}/logs
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,83 @@
+Library: ws.goulding.script-library.mergjson
+
+Type: library
+
+Summary:
+The mergJSON external itself can not parse JSON to and from
+multi-dimensional arrays. This is achieved through `JSONToArray`
+and `ArrayToJSON` script functions provided in this library. The
+implementations in this library are intented to be generally useful
+in addition to providing a basis for implementations focussed on
+edge cases such as `ArrayToJSON` that forces a known element to be an
+object.
+
+Name: ArrayToJSON
+
+Type: function
+
+Syntax: ArrayToJSON(<pArray>,<pForceRootType>,<pPretty>)
+
+Summary: Parse a LiveCode array to JSON
+
+Example:
+local tMessage
+ask question "What do you want to send?"
+if it is not empty then
+   put it into tMessage["text"]
+   put ArrayToJSON(tMessage) into tMessage
+
+   set the httpHeaders to "Content-type: application/json"
+   post tMessage to url kSlackWebhookURL
+end if
+
+Parameters: 
+
+pArray: A LiveCode array
+
+pForceRootType:
+Force an element value to be represented
+as a JSON type other than the default
+
+- "object" - force an object even if the array has numeric 1...N keys
+- "string" - force a string even if the element value parses as a number or boolean
+
+Returns: A UTF8 encoded JSON string
+
+Description:
+By default LiveCode numerically indexed arrays with keys 1...N are
+translated to JSON arrays and LiveCode array key -> value pairs are
+translated to JSON objects.
+
+
+
+Name: JSONToArray
+
+Type: function
+
+Syntax: JSONToArray(<pJSON>)
+
+Summary: Parse JSON to a LiveCode array
+
+Example:
+local tProfile
+put url "https://graph.facebook.com/me" into tProfile
+if the result begins with "error" then
+   -- handle error
+else
+   put JSONToArray(tProfile) into tProfile
+   -- do something interesting with the profile
+end if
+
+Parameters: 
+
+pJSON: A UTF8 encoded JSON string
+
+Returns: A LiveCode array
+
+Description:
+JSON arrays are translated to LiveCode numerically indexed arrays 
+with keys 1...N and JSON objects are translated to LiveCode array
+key -> value pairs.
+
+
+

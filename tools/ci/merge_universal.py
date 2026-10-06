@@ -61,7 +61,7 @@ a problem. Exit status 0 success, 1 problems (listed), 2 usage errors.
             Linux or WSL. The CI job runs lipo.
 --report    writes every path with what was done to it, as TSV.
 
---check DIR (the merged tree or the assembled OpenXTalk-Lite.app): every
+--check DIR (the merged tree or the assembled app): every
 Mach-O file of macOS code must hold exactly arm64 and x86_64, except
 SINGLE_ARCH and code in an architecture's own folder of an extension
 (code/arm64-mac*, code/x86_64-mac*, which the IDE maps by the processor).
@@ -109,6 +109,14 @@ SINGLE_ARCH = (
      'the debug symbols of reviphoneproxy (x86_64 only, see there), taken from the same build'),
 )
 
+# Prebuilt code the packages install as LiveCode's installers have it,
+# which --check leaves alone: (pattern, why)
+PREBUILT = (
+    ('**/Contents/Tools/Ext/**',
+     'package.txt component Ext: the mergExt bundle, byte for byte as LiveCode\'s installers have it '
+     '(Installer/legacyoxt/ext); its macOS builds are i386 and x86_64'),
+)
+
 # Files that differ between the two builds for a known reason: (pattern,
 # kind, why). The kind says how the copy is chosen (see plan_differ).
 DIFFER = (
@@ -141,7 +149,7 @@ BUILD_MACHINE_KEYS = frozenset(('BuildMachineOSBuild', 'DTCompiler', 'DTPlatform
 # universal one it would run the engine under Rosetta on Apple Silicon
 # (or have macOS offer to install Rosetta). fix_arch_priority rewrites the
 # array to ARCH_PRIORITY after writing, as package.py's mac_info_plist
-# writes it for OpenXTalk-Lite.app, and the check refuses a plist that still
+# writes it for the app, and the check refuses a plist that still
 # puts x86_64 first.
 PLIST = '**/Contents/Info.plist'
 ARCH_PRIORITY_KEY = 'LSArchitecturePriority'
@@ -659,6 +667,8 @@ def check_tree(root, use_lipo):
     entries, _ = scan(root)
     for path in sorted(entries):
         if entries[path].kind != 'file':
+            continue
+        if rule_for(PREBUILT, path):
             continue
         full = native(root, path)
         if match(PLIST, path):

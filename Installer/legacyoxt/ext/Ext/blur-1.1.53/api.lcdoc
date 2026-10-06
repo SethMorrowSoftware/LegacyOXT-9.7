@@ -1,0 +1,45 @@
+ Library: blur
+
+ type: library
+
+ Description:
+ blur is a simple external for blurring the imageData and alphaData of an image.
+ 
+ Version: 1.1.8
+
+ Tags: Externals
+
+ Name: blur
+
+ Type: command
+
+ Syntax: blur <pRadius>, <pOldImageDataVariable>, <pWidth>, <pHeight>, <pNewImageDataVariable>, [<pNewAlphaDataVariable>, <pFadeOut>, <pLeftFeather>, <pTopFeather>, <pRightFeather>, <pBottomFeather>]
+
+ Summary:  Blur the imageData of an image by a given radius.
+
+ Introduced: 8.0
+
+ OS: ios,android,linux,mac,windows
+
+ Platforms: mobile,desktop,server
+
+ Parameters:
+ pRadius (integer): blur radius
+ pOldImageDataVariable (string): name of variable containing image data
+ pWidth (integer): image width
+ pHeight (integer): image height
+ pNewImageDataVariable (string): name of variable to output new image data to
+ pNewAlphaDataVariable (string): optional name of variable to output alpha data to
+ pFadeOut (integer): number of pixels to alpha fade out. Default is 5.
+ pLeftFeather (boolean): feather the left side. If not set it will be feathered
+ pTopFeather (boolean): feather the top side. If not set it will be feathered
+ pRightFeather (boolean): feather the right side. If not set it will be feathered
+ pBottomFeather (boolean): feather the bottom side. If not set it will be feathered
+ Returns: An error message
+
+
+ Example:
+ local theOriginalImageData,theNewImageData
+ put the imageData of image 1 into theOriginalImageData
+ blur 5,"theOriginalImageData",the width of image 1,the height of image 1,"theNewImageData"
+ set the imageData of image 2 to theNewImageData

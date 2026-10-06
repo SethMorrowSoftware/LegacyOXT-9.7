@@ -37,10 +37,10 @@ The layout to test is one of
                   LiveCode-Community.app), the externals and the database
                   drivers in one folder.
   --install DIR   a staged or installed layout (tools/oxt/package.py's
-                  OpenXTalk-Lite-<version> folder): the engine OpenXTalk-Lite.exe,
-                  OpenXTalk-Lite or OpenXTalk-Lite.app/Contents/MacOS/OpenXTalk-Lite,
+                  LegacyOXT-<version> folder): the engine "LiveCode Community.exe",
+                  "LiveCode Community.<arch>" or <ProductTitle>.app/Contents/MacOS/LiveCode-Community,
                   and the tools folder (the folder itself, or on macOS
-                  OpenXTalk-Lite.app/Contents/Tools) with Externals,
+                  <ProductTitle>.app/Contents/Tools) with Externals,
                   Externals/Database Drivers and Extensions.
   --package FILE  a package (the portable zip, the Linux tar.xz or the
                   macOS app zip), extracted to a neutral temporary folder
@@ -278,8 +278,8 @@ def find_layout(args, p, temp_dirs):
         temp_dirs.append(dest)
         log('Extracting %s to %s ...' % (args.package, dest))
         top = extract_package(os.path.abspath(args.package), dest)
-        # the portable zip and the tar.xz hold OpenXTalk-Lite-<version>/; the
-        # macOS zip holds OpenXTalk-Lite.app itself
+        # the portable zip and the tar.xz hold LegacyOXT-<version>/; the
+        # macOS zip holds the .app itself
         root = dest if top == p.engine else os.path.join(dest, top)
         source = os.path.basename(args.package)
     else:
@@ -728,7 +728,7 @@ def main(argv=None):
     for name in ('smoke', 'compile'):
         s = sub.add_parser(name)
         s.add_argument('--bin', dest='bin_dir', metavar='DIR', help='build output (development layout)')
-        s.add_argument('--install', metavar='DIR', help='staged or installed OpenXTalk-Lite-<version> folder')
+        s.add_argument('--install', metavar='DIR', help='staged or installed LegacyOXT-<version> folder')
         s.add_argument('--package', metavar='FILE', help='package to extract and test')
         s.add_argument('--platform', choices=list(package.PLATFORMS),
                        help='layout names (default: this machine\'s, %s)' % default_platform())

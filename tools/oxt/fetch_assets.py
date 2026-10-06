@@ -93,7 +93,7 @@ KINDS = ('zip',)
 
 ATTEMPTS = 4
 TIMEOUT = 60
-USER_AGENT = 'OpenXTalk-Lite-packager (+https://github.com/SethMorrowSoftware/OpenXTalk-Lite-1.15)'
+USER_AGENT = 'LegacyOXT-packager (+https://github.com/SethMorrowSoftware/LegacyOXT-9.7)'
 
 
 class AssetError(Exception):

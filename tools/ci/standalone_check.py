@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
-"""Check the standalone runtimes of an installed OpenXTalk-Lite, and build
+"""Check the standalone runtimes of an installed LiveCode Community, and build
 standalones from them and run them.
 
   python tools/ci/standalone_check.py (--install DIR | --package FILE)
@@ -24,7 +24,7 @@ standalones from them and run them.
       [--platform P] [--log FILE] [--timeout SECONDS]
 
 --install is an installed layout, as for tools/ci/run_livecode_check.py
-(the folder that holds OpenXTalk-Lite.app on macOS, the program folder on
+(the folder that holds the .app on macOS, the program folder on
 Windows and Linux), tested from a neutral path; --package extracts a
 package (the portable zip, the Linux tar.xz) to a temporary folder first.
 --platform names the layout (default: this machine's). --engine and
@@ -38,7 +38,7 @@ The targets are the runtimes that the IDE's standalone builder deploys
 (revsblibrary revSBEnginePath), by the tools/oxt/package.py platform whose
 tables describe their folders (RUNTIMES):
 
-  mac-universal   Runtime/Mac OS X/x64-ARM64/Standalone-blank.app
+  mac-universal   Runtime/Mac OS X/x86-64/Standalone.app
   win-x86_64      Runtime/Windows/x86-64/Standalone
   win-x86         Runtime/Windows/x86-32/Standalone
   linux-x86_64    Runtime/Linux/x86-64/Standalone
@@ -58,7 +58,7 @@ Android SDK and are not checked here.
    every architecture of the layout, an Info.plist whose
    LSMinimumSystemVersion is the lowest minimum macOS of that engine (the
    builder copies it into every standalone), the icons the builder copies
-   into every Mac standalone (x86-32: Standalone.icns and
+   into every Mac standalone (Standalone.icns and
    StandaloneDoc.icns), its Support files, and Externals whose
    Externals.txt and Database Drivers.txt name only bundles that are
    there; each Standalone*.app passes "codesign --verify --strict" when
@@ -122,11 +122,12 @@ import package  # noqa: E402
 import run_livecode_check as rlc  # noqa: E402
 
 DEPLOY_SCRIPT = os.path.join(HERE, 'standalone-deploy.livecodescript')
-# The runtime the IDE deploys for each target, in the tools folder (the Mac
-# target's "IntelArmUniversal" button selects MacOSX x64-ARM64), by the
-# package.py platform whose tables describe its folder
+# The runtime the IDE deploys for each target, in the tools folder (LiveCode's
+# IDE takes Mac OS X/x86-64 for every Mac target; in the universal layout its
+# engine holds both architectures), by the package.py platform whose tables
+# describe its folder
 RUNTIMES = collections.OrderedDict([
-    ('mac-universal', 'Runtime/Mac OS X/x64-ARM64/Standalone-blank.app'),
+    ('mac-universal', 'Runtime/Mac OS X/x86-64/Standalone.app'),
     ('win-x86_64', 'Runtime/Windows/x86-64/Standalone'),
     ('win-x86', 'Runtime/Windows/x86-32/Standalone'),
     ('linux-x86_64', 'Runtime/Linux/x86-64/Standalone'),
@@ -409,9 +410,7 @@ def deploy_and_run(engine, runtime, tp, work, timeout, expect_version):
 
 
 # Problems known to be in what the check looks at, one message per line as
-# the check words it; "#" starts a comment. In this repository they are
-# faults of OpenXTalk Lite 1.15's own runtimes (the asset oxt-runtimes-1.15),
-# which are kept as Tom Perry shipped them: reported, but not failures.
+# the check words it; "#" starts a comment: reported, but not failures.
 BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'standalone-baseline.txt')
 
 
@@ -424,9 +423,9 @@ def read_baseline(path=BASELINE):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='Check the standalone runtimes of an installed OpenXTalk-Lite, and build '
+    ap = argparse.ArgumentParser(description='Check the standalone runtimes of an installed LiveCode Community, and build '
                                              'standalones from them and run them.')
-    ap.add_argument('--install', metavar='DIR', help='installed layout (the folder that holds OpenXTalk-Lite.app on '
+    ap.add_argument('--install', metavar='DIR', help='installed layout (the folder that holds the .app on '
                                                      'macOS, the program folder elsewhere)')
     ap.add_argument('--package', metavar='FILE', help='a package (the portable zip, the Linux tar.xz) to extract '
                                                       'and check like --install')

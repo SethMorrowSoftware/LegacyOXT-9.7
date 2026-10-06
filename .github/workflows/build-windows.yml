@@ -1,51 +1,48 @@
-# Builds OpenXTalk Lite 1.15 (Tom Perry's source, his Windows and macOS
-# working copies merged at the tag tom-perry-1.15-merged, with the build
-# changes after it; CHANGES-FROM-TOM.md lists them) for Windows x86-64 (Release) on a
+# Builds LiveCode Community 9.7.0-dp-1 (LiveCode's source at the tag
+# livecode-9.7.0-dp-1, with the build changes after it;
+# CHANGES-FROM-LIVECODE.md lists them) for Windows x86-64 (Release) on a
 # GitHub-hosted windows-2022 runner, checks the result and packages it.
-# Adapted from OXT-Beyond's workflow of the same name; see README.md.
+# Adapted from OpenXTalk-Lite-1.15's workflow of the same name.
 #
-#   OpenXTalk-Lite-<ver>-win-x86_64-setup.exe     installer (Inno Setup)
-#   OpenXTalk-Lite-<ver>-win-x86_64-portable.zip  the installed program
-#                                                 folder, under one top
-#                                                 folder OpenXTalk-Lite-<ver>
-#   OpenXTalk-Lite-<ver>-win-x86_64-binaries.zip  win-x86_64-bin without
-#                                                 *.pdb, plus LICENSE
-#   OpenXTalk-Lite-<ver>-win-x86_64-symbols.zip   the *.pdb files
+#   LegacyOXT-<ver>-win-x86_64-setup.exe     installer (Inno Setup)
+#   LegacyOXT-<ver>-win-x86_64-portable.zip  the installed program folder,
+#                                            under one top folder
+#                                            LegacyOXT-<ver>
+#   LegacyOXT-<ver>-win-x86_64-binaries.zip  win-x86_64-bin without *.pdb,
+#                                            plus LICENSE
+#   LegacyOXT-<ver>-win-x86_64-symbols.zip   the *.pdb files
 #   SHA256SUMS
 #
-# <ver> is ide/.version, which is Tom Perry's (1.15). The installed layout
-# is OpenXTalk Lite 1.15's (tools/oxt/package.py: the engine is
-# OpenXTalk-Lite.exe, as there), with the standalone runtimes for other
-# platforms from the external asset oxt-runtimes-1.15, OpenXTalk Lite 1.15's
-# own. The build number written into the packaged .buildnumber
+# <ver> is BUILD_SHORT_VERSION in the file version (9.7.0-dp-1). The
+# installed layout is LiveCode's (Installer/package.txt, as
+# tools/oxt/package.py transcribes it): the engine is "LiveCode
+# Community.exe", as LiveCode's installer named it. The build number
 # (OXT_BUILD_NUMBER) is the input build-number when release.yml gives one,
 # else the UTC time at which the build job started, as YYYYMMDDHHMM.
 #
 # The prebuilt libraries are LiveCode's own Windows x86-64 (MSVC v141)
-# builds that Tom Perry's tree pins in prebuilt/versions (OpenSSL 1.1.1g,
-# curl 7.51.0, ICU 58.2, CEF 74.1.19 and the Thirdparty set): the files he
-# built against. LiveCode's server no longer serves them, so they are
-# fetched from OXT-Beyond's release prebuilts-v1, which mirrors them, and
-# each is checked against prebuilt/SHA256SUMS. SQLite is built from
-# thirdparty/libsqlite (Tom Perry's 3.51.1) instead of the Thirdparty set's
-# older library.
+# builds that prebuilt/versions pins (OpenSSL 1.1.1g, curl 7.51.0,
+# ICU 58.2, CEF 74.1.19 and the Thirdparty set). LiveCode's server no
+# longer serves them, so they are fetched from OXT-Beyond's release
+# prebuilts-v1, which mirrors them, and each is checked against
+# prebuilt/SHA256SUMS. SQLite is built from thirdparty/libsqlite instead of
+# the Thirdparty set's library (CHANGES-FROM-LIVECODE.md).
 #
 # After the build and its verification, the job writes the installed
-# layout to dist/stage/OpenXTalk-Lite-<ver> and the zips to dist
+# layout to dist/stage/LegacyOXT-<ver> and the zips to dist
 # (tools/ci/package-windows.ps1), then checks it: the DLL imports of the
 # extensions, the headless smoke test of the portable zip, a standalone
 # from each runtime, the browser and the player, the IDE compile check, the
 # engine test suites of tests/, and the installer, built and then
 # installed, smoke-tested and uninstalled. A failure that is not in the
-# baselines (tools/ci/*-baseline*.txt, which record how Tom Perry's code
+# baselines (tools/ci/*-baseline*.txt, which record how LiveCode's code
 # behaves) fails the job. Every check runs even when an earlier one failed,
 # so that a run reports all of them. A run that packaged uploads the files
-# in dist (not dist/stage) as the artifact "OpenXTalk-Lite-win-x86_64";
-# every run uploads the logs as "build-logs-win-x86_64".
+# in dist (not dist/stage) as the artifact "LegacyOXT-win-x86_64"; every
+# run uploads the logs as "build-logs-win-x86_64".
 #
 # There is no 32-bit Windows build: LiveCode's 32-bit prebuilt libraries
-# are not available any more, and the packages take the 32-bit Windows
-# runtime from oxt-runtimes-1.15.
+# are not available any more.
 #
 # Releases: .github/workflows/release.yml calls this workflow (workflow_call)
 # for a tag v<ver>-r<n> and for its dry runs, and publishes this artifact
@@ -288,25 +285,113 @@ jobs:
         id: verify
         run: ./tools/ci/verify-build.ps1
 
-      # The build's development engine without a user interface
-      # (tools/ci/smoke-test.livecodescript through run_livecode_check.py):
-      # the script engine, ICU, OpenSSL, SQLite, revXML, revZip and the
-      # externals of win-x86_64-bin
-      - name: Smoke test (build output)
-        id: smoke
-        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
-        timeout-minutes: 15
-        run: python tools/ci/run_livecode_check.py smoke --bin win-x86_64-bin --log "$env:RUNNER_TEMP\build-logs\smoke-test.log"
+      # Restore and save are separate steps so that verified downloads are
+      # cached even when a later step fails. tools/oxt/package.py verifies
+      # every cached archive against the SHA-256 in the manifest before
+      # using it. The path must be the same in the save step (it is part of
+      # the cache version).
+      - name: Restore cached external assets
+        id: assets-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: prebuilt/fetched-assets/*.zip
+          key: oxt-external-assets-${{ hashFiles('tools/oxt/external-assets.json') }}
 
-      # Every script of LiveCode's IDE as the repository has it (ide/,
-      # ide-support/, the build's packaged extensions), compiled by the
-      # build's development engine; errors are compared with
-      # tools/ci/ide-compile-baseline.txt and its Windows supplement
+      # Writes dist/stage/LegacyOXT-<ver> (the installed layout), the
+      # portable, binaries and symbols zips and SHA256SUMS. The external
+      # assets are left out (package-windows.ps1 -NoExternalAssets) when a
+      # manual run sets the input no_external_assets, or when the repository
+      # variable OXT_NO_EXTERNAL_ASSETS is 1, except in release builds (a
+      # tag, or the input release from release.yml, also in its dry runs).
+      # LiveCode's packages have no xTalk Suite extensions, so
+      # NO_XTALK_EXTENSIONS is always true.
+      - name: Package
+        id: package
+        timeout-minutes: 45
+        env:
+          OXT_ASSETS_CACHE: ${{ github.workspace }}\prebuilt\fetched-assets
+          NO_EXTERNAL_ASSETS: ${{ github.ref_type != 'tag' && !inputs.release && (inputs.no_external_assets == true || vars.OXT_NO_EXTERNAL_ASSETS == '1') }}
+          NO_XTALK_EXTENSIONS: 'true'
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'build-logs\package.log'
+          New-Item -ItemType Directory -Force -Path (Split-Path -Parent $log) | Out-Null
+          $packageArgs = @{}
+          if ($env:NO_EXTERNAL_ASSETS -eq 'true') {
+            Write-Host '::warning title=Package::External assets left out (no_external_assets input or OXT_NO_EXTERNAL_ASSETS variable): the packages have no standalone runtimes for other platforms.'
+            $packageArgs['NoExternalAssets'] = $true
+          }
+          $global:LASTEXITCODE = 0
+          ./tools/ci/package-windows.ps1 @packageArgs *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { throw "package-windows.ps1 failed with exit code $LASTEXITCODE" }
+
+      - name: Save external assets to the cache
+        if: always() && steps.assets-cache.outputs.cache-hit != 'true' && hashFiles('prebuilt/fetched-assets/*.zip') != ''
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: prebuilt/fetched-assets/*.zip
+          key: ${{ steps.assets-cache.outputs.cache-primary-key }}
+
+      # Every DLL in Extensions/**/code/*-win32 must import only Windows
+      # system DLLs and DLLs in its own folder; otherwise it cannot load on
+      # a PC without the missing DLL (for example the Visual C++
+      # redistributable, which CI runners always have).
+      - name: Check extension DLL imports
+        id: check_imports
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: ./tools/ci/check-extension-imports.ps1 -Root "dist/stage/LegacyOXT-$env:VERSION"
+
+      # Extract the portable zip and run its engine (LiveCode Community.exe) without
+      # a user interface: the script engine, ICU, OpenSSL, SQLite (revDB and
+      # the driver in Externals\Database Drivers), revXML and revZip.
+      - name: Smoke test (portable zip, headless)
+        id: smoke
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        timeout-minutes: 15
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: |
+          $package = "dist/LegacyOXT-$env:VERSION-win-x86_64-portable.zip"
+          if (-not (Test-Path -LiteralPath $package -PathType Leaf)) { throw "$package was not written" }
+          ./tools/ci/smoke-test.ps1 -Package $package -LogFile "$env:RUNNER_TEMP\build-logs\smoke-test-portable.log"
+
+      # A standalone built from each runtime of the portable zip
+      # (Windows x86-64 and x86, Linux x86-64 and x86) by its engine, as the
+      # IDE's builder does at its core ("_internal deploy"); the Windows
+      # ones are run (this runner runs both architectures), the Linux ones
+      # checked as ELF files. tools/ci/standalone_check.py extracts the zip
+      # to a neutral folder and checks each runtime folder's binaries first.
+      - name: Standalone check
+        id: standalone
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        timeout-minutes: 15
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: python tools/ci/standalone_check.py --package "dist/LegacyOXT-$env:VERSION-win-x86_64-portable.zip" --platform win-x86_64 --targets all --log "$env:RUNNER_TEMP\build-logs\standalone-check.log"
+
+      # The browser widget, revBrowser (CEF) and the player (DirectShow) in a
+      # standalone of the portable zip, with the runner's desktop: a page
+      # loads and its JavaScript calls back into the script, a WAV and an
+      # MP4 file play, pause and end (tools/ci/media_check.py)
+      - name: Browser and player check
+        id: media_check
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        timeout-minutes: 10
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: python tools/ci/media_check.py --package "dist/LegacyOXT-$env:VERSION-win-x86_64-portable.zip" --platform win-x86_64 --log "$env:RUNNER_TEMP\build-logs\media-check.log"
+
+      # Compile every IDE script of the staged installed layout with its
+      # engine; fails on compile errors that are not in the baseline.
       - name: IDE compile check
         id: compile_check
-        if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
         timeout-minutes: 20
-        run: python tools/ci/run_livecode_check.py compile --repo-layout --bin win-x86_64-bin --log "$env:RUNNER_TEMP\build-logs\ide-compile-check.log"
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: ./tools/ci/ide-compile-check.ps1 -Root "dist/stage/LegacyOXT-$env:VERSION" -LogFile "$env:RUNNER_TEMP\build-logs\ide-compile-check.log"
 
       # The engine test suites of tests/ (tools/ci/run_engine_tests.py): the
       # LiveCode Script tests of tests/lcs, each run on its own by the
@@ -328,6 +413,50 @@ jobs:
         if: ${{ !cancelled() && steps.verify.outcome == 'success' }}
         timeout-minutes: 45
         run: python tools/ci/run_engine_tests.py --bin win-x86_64-bin --jobs 4 --log "$env:RUNNER_TEMP\build-logs\engine-tests.log"
+
+      - name: Build installer
+        id: installer
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        timeout-minutes: 60
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'build-logs\build-installer.log'
+          $global:LASTEXITCODE = 0
+          ./tools/ci/build-installer.ps1 -Stage "dist/stage/LegacyOXT-$env:VERSION" -OutDir dist *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { throw "build-installer.ps1 failed with exit code $LASTEXITCODE" }
+
+      # Install per user into a temporary folder, check the files, run the
+      # smoke test on the installed LiveCode Community.exe and uninstall again.
+      - name: Test installer
+        id: test_installer
+        if: ${{ !cancelled() && steps.installer.outcome == 'success' }}
+        timeout-minutes: 30
+        env:
+          VERSION: ${{ steps.product.outputs.version }}
+        run: |
+          $setup = "dist/LegacyOXT-$env:VERSION-win-x86_64-setup.exe"
+          if (-not (Test-Path -LiteralPath $setup -PathType Leaf)) { throw "$setup was not written" }
+          $log = Join-Path $env:RUNNER_TEMP 'build-logs\test-installer.log'
+          $global:LASTEXITCODE = 0
+          ./tools/ci/test-installer.ps1 -Setup $setup *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { throw "test-installer.ps1 failed with exit code $LASTEXITCODE" }
+
+      - name: Upload packages
+        id: upload
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: LegacyOXT-win-x86_64
+          # Everything in dist except the staged layout
+          path: |
+            dist/*
+            !dist/stage
+            !dist/stage/**
+          if-no-files-found: error
+          retention-days: 30
+          # The files are compressed already
+          compression-level: 0
 
       - name: Collect logs
         id: collect_logs
@@ -453,16 +582,16 @@ jobs:
             '',
             "- Commit: ``$env:GITHUB_SHA``",
             "- Visual Studio: ``$env:VS_PATH``, MSVC v141 ``$env:MSVC_V141``, Windows SDK ``$env:WINSDK_VERSION``",
-            "- OpenXTalk Lite ``$env:VERSION``, build number ``$env:BUILD_NUMBER``; engine ``$env:ENGINE_VERSION``, SQLite ``$env:SQLITE_VERSION``",
+            "- LiveCode Community ``$env:VERSION`` (LegacyOXT), build number ``$env:BUILD_NUMBER``; engine ``$env:ENGINE_VERSION``, SQLite ``$env:SQLITE_VERSION``",
             '',
             '### Artifacts',
             ''
           )
           if ($env:ARTIFACT_URL) {
-            $lines += "- [OpenXTalk-Lite-win-x86_64]($env:ARTIFACT_URL): the installer, the portable, binaries and symbols zips and SHA256SUMS"
+            $lines += "- [LegacyOXT-win-x86_64]($env:ARTIFACT_URL): the installer, the portable, binaries and symbols zips and SHA256SUMS"
           }
           else {
-            $lines += '- OpenXTalk-Lite-win-x86_64: not uploaded (an earlier step failed)'
+            $lines += '- LegacyOXT-win-x86_64: not uploaded (an earlier step failed)'
           }
           $lines += '- build-logs-win-x86_64: msbuild.log and the packaging, smoke test, standalone check, browser and player check, IDE compile check, engine test and installer logs'
           $lines += ''

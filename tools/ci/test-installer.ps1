@@ -1,32 +1,31 @@
 <#
 .SYNOPSIS
-    Installs the OpenXTalk-Lite setup program silently for the current user,
+    Installs the LegacyOXT setup program silently for the current user,
     checks the installation, runs the smoke test on it and uninstalls it.
 
 .DESCRIPTION
-    1. Refuses to run when OpenXTalk-Lite is already installed for the current
-       user: the test would replace that installation and then remove it.
+    1. Refuses to run when it is already installed for the current user:
+       the test would replace that installation and then remove it.
     2. Runs the setup program with
          /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /NOCANCEL
          /DIR=<new temporary folder> /LOG=<file> /MERGETASKS="desktopicon"
        The folder is under RUNNER_TEMP on GitHub Actions, otherwise under the
        user's temporary folder.
-    3. Checks the exit code, the key files, that every file of the staged
-       layout was installed with the same size (when the staged layout is
-       found), .version, the uninstall registration in HKCU, the Start menu
-       and desktop shortcuts, the .oxtstack and .oxtscript associations, and
-       that the Users group has Modify on the folders and files the IDE
-       writes to at run time.
+    3. Checks the exit code, LiveCode's key files, that every file of the
+       staged layout was installed with the same size (when the staged
+       layout is found), the uninstall registration in HKCU, the Start menu
+       and desktop shortcuts (named LiveCode's ProductTitle, such as
+       "LiveCode Community 9.7 (dp 1)", as LiveCode's installer named them),
+       and that no file type was registered (LiveCode's installer registered
+       none).
     4. Runs tools/ci/smoke-test.ps1 -InstallDir on the installed folder.
     5. Runs the uninstaller silently and checks that the registration, the
-       installed files, the shortcuts and the associations are gone. Files
-       that were not installed but are left in the folder are listed as a
-       warning (the program created them at run time).
+       installed files and the shortcuts are gone. Files that were not
+       installed but are left in the folder are listed as a warning (the
+       program created them at run time).
 
     If a check fails after the installation, the uninstaller still runs, so
-    the machine is left as it was. When .oxtstack or .oxtscript are already
-    associated with another program for this user, the association task is
-    left out (and not checked) so that the test does not remove it.
+    the machine is left as it was.
 
     The setup and uninstall logs are written to -LogDir. Exits with 0 when
     every check passed, 1 otherwise. Under GitHub Actions it adds a short
@@ -35,15 +34,15 @@
     Written to run under Windows PowerShell 5.1 and PowerShell 7.
 
 .PARAMETER Setup
-    The OpenXTalk-Lite-<version>-win-x86_64-setup.exe to test.
+    The LegacyOXT-<version>-win-x86_64-setup.exe to test.
 
 .PARAMETER InstallDir
     Folder to install into. It must not exist or be empty. Default: a new
-    folder OpenXTalk-Lite-test-<random> under RUNNER_TEMP or the temporary folder.
+    folder LegacyOXT-test-<random> under RUNNER_TEMP or the temporary folder.
 
 .PARAMETER Stage
     Staged installed layout to compare the installed files with. Default:
-    stage\OpenXTalk-Lite-<version> next to the setup program, if it exists.
+    stage\LegacyOXT-<version> next to the setup program, if it exists.
 
 .PARAMETER RepoRoot
     Repository root. Default: two levels up from this script.
@@ -76,28 +75,41 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-# ProductName names the files; AppName is what the installer shows (its
-# AppName: the Start menu folder, the shortcuts, Settings > Apps)
-$ProductName = 'OpenXTalk-Lite'
-$AppName = 'OpenXTalk Lite'
-$ExeName = 'OpenXTalk-Lite.exe'
-$Publisher = 'SethMorrowSoftware/OpenXTalk-Lite-1.15'
-$RepoUrl = 'https://github.com/SethMorrowSoftware/OpenXTalk-Lite-1.15'
-$UsersSid = 'S-1-5-32-545'
+# ProductName names the package's files; the program keeps LiveCode's names
+$ProductName = 'LegacyOXT'
+$ExeName = 'LiveCode Community.exe'
+$GroupName = 'LegacyOXT'
+$Publisher = 'LegacyOXT (an unofficial build, not by LiveCode Ltd)'
+$RepoUrl = 'https://github.com/SethMorrowSoftware/LegacyOXT-9.7'
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+# builder/tools_builder.livecodescript getReadableVersion (as
+# build-installer.ps1 has it)
+function Get-ReadableVersion([string]$v) {
+    $parts = $v.Split('-')
+    $number = $parts[0]
+    $tag = @($parts | Select-Object -Skip 1)
+    if ($tag.Count -gt 0 -and $tag[0] -eq 'gm') { $tag = @() }
+    if ($number.EndsWith('.0')) { $number = $number.Substring(0, $number.Length - 2) }
+    if ($tag.Count -gt 0) { return "$number ($($tag -join ' '))" }
+    return $number
+}
 
 # --- Arguments ---
 if (-not $RepoRoot) { $RepoRoot = Join-Path $PSScriptRoot '..\..' }
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).ProviderPath.TrimEnd('\')
 $Setup = (Resolve-Path -LiteralPath $Setup).ProviderPath
-$Version = ([System.IO.File]::ReadAllText((Join-Path $RepoRoot 'ide\.version'))).Trim()
+$versionMatch = Select-String -LiteralPath (Join-Path $RepoRoot 'version') -Pattern '^BUILD_SHORT_VERSION = *(.*)$' | Select-Object -First 1
+if (-not $versionMatch) { throw "$RepoRoot\version has no BUILD_SHORT_VERSION" }
+$Version = $versionMatch.Matches[0].Groups[1].Value.Trim()
+$ProductTitle = 'LiveCode Community ' + (Get-ReadableVersion $Version)
 $expectedSetupName = "$ProductName-$Version-win-x86_64-setup.exe"
 if ((Split-Path -Leaf $Setup) -ne $expectedSetupName) {
-    Write-Warning "Expected a setup program named $expectedSetupName (ide\.version is $Version)."
+    Write-Warning "Expected a setup program named $expectedSetupName (BUILD_SHORT_VERSION is $Version)."
 }
 
 # The uninstall registry key is named after the fixed AppId in the script
-$issPath = Join-Path $RepoRoot 'Installer\openxtalk-lite\openxtalk-lite.iss'
+$issPath = Join-Path $RepoRoot 'Installer\legacyoxt\legacyoxt.iss'
 $appIdMatch = [regex]::Match([System.IO.File]::ReadAllText($issPath), '(?m)^\s*AppId\s*=\s*\{\{([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})\}')
 if (-not $appIdMatch.Success) { throw "AppId not found in $issPath" }
 $UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{' + $appIdMatch.Groups[1].Value + '}_is1'
@@ -189,28 +201,27 @@ function Get-RelativeFiles([string]$Dir) {
     }
 }
 
-# Whether the Users group has an Allow rule with Modify on a file or folder
-# (explicit or inherited)
-function Test-UsersModify([string]$Path) {
-    $modify = [System.Security.AccessControl.FileSystemRights]::Modify
-    foreach ($rule in @((Get-Acl -LiteralPath $Path).Access)) {
-        if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
-        if (($rule.FileSystemRights -band $modify) -ne $modify) { continue }
-        try { $sid = $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } catch { continue }
-        if ($sid -eq $UsersSid) { return $true }
-    }
-    return $false
-}
-
 function Get-ShortcutTarget([string]$Path) {
     $shell = New-Object -ComObject WScript.Shell
     try { return $shell.CreateShortcut($Path).TargetPath }
     finally { [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($shell) }
 }
 
+# The file types a LiveCode IDE opens; none may be registered by Setup
+$StackTypes = @('.livecode', '.livecodescript', '.rev', '.mc')
+function Get-TypeRegistrations {
+    $found = @()
+    foreach ($ext in $StackTypes) {
+        $value = Get-RegValue $HKCU "Software\Classes\$ext" ''
+        if ($value) { $found += "$ext=$value" }
+    }
+    if (Test-RegKey $HKCU "Software\Classes\Applications\$ExeName") { $found += "Applications\$ExeName" }
+    return $found
+}
+
 # --- Before installing ---
 Write-Host "Setup      : $Setup"
-Write-Host "Version    : $Version"
+Write-Host "Version    : $Version ($ProductTitle)"
 Write-Host "Install to : $InstallDir"
 Write-Host "Stage      : $(if ($Stage) { $Stage } else { '(not found; staged files are not compared)' })"
 Write-Host "Logs       : $LogDir"
@@ -218,26 +229,19 @@ Write-Host ''
 
 if (Test-RegKey $HKCU $UninstallKey) {
     $existing = Get-RegValue $HKCU $UninstallKey 'InstallLocation'
-    throw "$ProductName is already installed for this user ($existing). Uninstall it first: this test would replace it and then remove it."
+    throw "$ProductTitle ($ProductName) is already installed for this user ($existing). Uninstall it first: this test would replace it and then remove it."
 }
 if (Test-RegKey $HKLM $UninstallKey) {
-    Write-Warning "$ProductName is installed for all users on this machine; the test installs a separate copy for the current user."
+    Write-Warning "$ProductTitle ($ProductName) is installed for all users on this machine; the test installs a separate copy for the current user."
 }
 
-$testAssociations = $true
-foreach ($pair in @(@('.oxtstack', 'OpenXTalkLite.Stack'), @('.oxtscript', 'OpenXTalkLite.Script'))) {
-    $current = Get-RegValue $HKCU "Software\Classes\$($pair[0])" ''
-    if ($current -and $current -ne $pair[1]) {
-        Write-Warning "$($pair[0]) is associated with '$current' for this user; the file association task is left out of the test."
-        $testAssociations = $false
-    }
-}
+$typesBefore = @(Get-TypeRegistrations)
 $programsDir = [Environment]::GetFolderPath('Programs')
 $desktopDir = [Environment]::GetFolderPath('DesktopDirectory')
-$groupDir = Join-Path $programsDir $AppName
-$appLink = Join-Path $groupDir "$AppName.lnk"
-$uninstallLink = Join-Path $groupDir "Uninstall $AppName.lnk"
-$desktopLink = Join-Path $desktopDir "$AppName.lnk"
+$groupDir = Join-Path $programsDir $GroupName
+$appLink = Join-Path $groupDir "$ProductTitle.lnk"
+$uninstallLink = Join-Path $groupDir "Uninstall $ProductTitle.lnk"
+$desktopLink = Join-Path $desktopDir "$ProductTitle.lnk"
 $testDesktopLink = -not (Test-Path -LiteralPath $desktopLink)
 if (-not $testDesktopLink) {
     Write-Warning "$desktopLink exists already; the desktop shortcut task is left out of the test."
@@ -245,10 +249,7 @@ if (-not $testDesktopLink) {
 if (Test-Path -LiteralPath $groupDir) {
     throw "The Start menu folder $groupDir exists already; remove it first (the test would remove it)."
 }
-$taskList = @()
-$taskList += $(if ($testDesktopLink) { 'desktopicon' } else { '!desktopicon' })
-if (-not $testAssociations) { $taskList += '!fileassoc' }
-$tasks = $taskList -join ','
+$tasks = $(if ($testDesktopLink) { 'desktopicon' } else { '!desktopicon' })
 
 $installed = $false
 $uninstalled = $false
@@ -266,29 +267,19 @@ try {
 
     Write-Host ''
     Write-Host 'Installed files:'
+    # LiveCode's installed layout (Installer/package.txt)
     $keyFiles = @(
-        $ExeName, '.version', '.buildnumber', 'edition.txt', 'about.dat',
-        'LICENSE',
+        $ExeName, 'edition.txt', 'about.txt', 'License Agreement.txt', 'Open Source Licenses.txt',
         'revsecurity.dll', 'revpdfprinter.dll', 'unins000.exe', 'unins000.dat',
         'Toolset\home.livecodescript',
         'Externals\Externals.txt', 'Externals\revdb.dll', 'Externals\revxml.dll', 'Externals\revzip.dll',
         'Externals\Database Drivers\dbsqlite.dll',
+        'Ext\mergJSON-1.0.70\mergJSON-x64.dll',
         'Toolchain\lc-compile.exe',
-        'Runtime\Windows\x86-64\Standalone',
-        'Documentation\html_viewer\resources\data\api\exports\xtalk\index.txt'
+        'Runtime\Windows\x86-64\Standalone'
     )
     $missing = @($keyFiles | Where-Object { -not (Test-Path -LiteralPath (Join-Path $InstallDir $_) -PathType Leaf) })
     Add-Check "Key files present ($($keyFiles.Count))" ($missing.Count -eq 0) ($missing -join ', ')
-    $emptyDirs = @('builder', 'datagrid') | ForEach-Object { "Documentation\html_viewer\resources\data\api\exports\$_\plugins" }
-    $missingDirs = @($emptyDirs | Where-Object { -not (Test-Path -LiteralPath (Join-Path $InstallDir $_) -PathType Container) })
-    Add-Check 'Empty dictionary plugin folders present' ($missingDirs.Count -eq 0) ($missingDirs -join ', ')
-
-    $versionFile = Join-Path $InstallDir '.version'
-    $installedVersion = if (Test-Path -LiteralPath $versionFile) { ([System.IO.File]::ReadAllText($versionFile)).Trim() } else { '' }
-    Add-Check ".version is $Version" ($installedVersion -eq $Version) $installedVersion
-    $buildFile = Join-Path $InstallDir '.buildnumber'
-    $buildNumber = if (Test-Path -LiteralPath $buildFile) { ([System.IO.File]::ReadAllText($buildFile)).Trim() } else { '' }
-    Add-Check '.buildnumber is a number' ($buildNumber -match '^\d+$') $buildNumber
 
     foreach ($f in @(Get-RelativeFiles $InstallDir)) { $installedFiles[$f.Path] = $f.Length }
     if ($Stage) {
@@ -317,7 +308,7 @@ try {
         # Setup adds a suffix to DisplayName when another entry already has
         # the same name (for example an installation for all users)
         $value = Get-RegValue $HKCU $UninstallKey 'DisplayName'
-        Add-Check "DisplayName is '$AppName $Version'" ("$value" -like "$AppName $Version*") "$value"
+        Add-Check "DisplayName is '$ProductTitle (LegacyOXT)'" ("$value" -like "$ProductTitle (LegacyOXT)*") "$value"
         $expect = [ordered]@{
             DisplayVersion = $Version
             Publisher      = $Publisher
@@ -349,49 +340,11 @@ try {
     }
     Add-Check "$uninstallLink exists" (Test-Path -LiteralPath $uninstallLink -PathType Leaf) ''
 
-    # --- File associations ---
+    # --- No file types ---
     Write-Host ''
-    Write-Host 'File associations (HKCU\Software\Classes):'
-    $command = "`"$(Join-Path $InstallDir $ExeName)`" `"%1`""
-    $icon = "$(Join-Path $InstallDir $ExeName),1"
-    if ($testAssociations) {
-        foreach ($pair in @(@('.oxtstack', 'OpenXTalkLite.Stack'), @('.oxtscript', 'OpenXTalkLite.Script'))) {
-            $ext = $pair[0]; $progId = $pair[1]
-            $value = Get-RegValue $HKCU "Software\Classes\$ext" ''
-            Add-Check "$ext opens as $progId" ($value -eq $progId) "$value"
-            Add-Check "$ext lists $progId in OpenWithProgids" ($null -ne (Get-RegValue $HKCU "Software\Classes\$ext\OpenWithProgids" $progId)) ''
-            $value = Get-RegValue $HKCU "Software\Classes\$progId\shell\open\command" ''
-            Add-Check "$progId opens with $ExeName" ($value -eq $command) "$value"
-            $value = Get-RegValue $HKCU "Software\Classes\$progId\DefaultIcon" ''
-            Add-Check "$progId icon is $ExeName,1" (Test-SamePath $value $icon) "$value"
-        }
-    }
-    else {
-        Write-Host '  (association task left out; see the warning above)'
-    }
-    foreach ($ext in @('.oxtstack', '.oxtscript')) {
-        $present = $null -ne (Get-RegValue $HKCU "Software\Classes\Applications\$ExeName\SupportedTypes" $ext)
-        Add-Check "Applications\$ExeName supports $ext" $present ''
-    }
-
-    # --- Permissions for the IDE's run-time writes ---
-    Write-Host ''
-    Write-Host 'Users group has Modify on:'
-    $exports = 'Documentation\html_viewer\resources\data\api\exports'
-    $writable = @($exports, "$exports\xtalk\index.txt")
-    foreach ($optional in @('Toolset\palettes\updates\whatsnew.txt')) {
-        if (Test-Path -LiteralPath (Join-Path $InstallDir $optional)) { $writable += $optional }
-    }
-    $history = Join-Path $InstallDir 'Toolset\palettes\updates\updatehistory'
-    if (Test-Path -LiteralPath $history -PathType Container) {
-        $first = Get-ChildItem -LiteralPath $history -Filter '*.txt' -File | Select-Object -First 1
-        if ($first) { $writable += "Toolset\palettes\updates\updatehistory\$($first.Name)" }
-    }
-    foreach ($rel in $writable) {
-        $path = Join-Path $InstallDir $rel
-        $ok = (Test-Path -LiteralPath $path) -and (Test-UsersModify $path)
-        Add-Check $rel $ok ''
-    }
+    Write-Host 'File types (HKCU\Software\Classes):'
+    $typesNew = @(Get-TypeRegistrations | Where-Object { $typesBefore -notcontains $_ })
+    Add-Check 'No file type registered (as LiveCode''s installer)' ($typesNew.Count -eq 0) ($typesNew -join ', ')
 
     # --- Smoke test of the installed program ---
     Write-Host ''
@@ -414,7 +367,7 @@ try {
             $detail = $_.Exception.Message
         }
         $global:LASTEXITCODE = 0
-        Add-Check 'Smoke test of the installed OpenXTalk-Lite.exe' ($failedCount -eq 0) $detail
+        Add-Check "Smoke test of the installed $ExeName" ($failedCount -eq 0) $detail
     }
 
     # --- Uninstall ---
@@ -448,15 +401,6 @@ try {
     $linksLeft = @(@($appLink, $uninstallLink, $groupDir) | Where-Object { Test-Path -LiteralPath $_ })
     if ($testDesktopLink -and (Test-Path -LiteralPath $desktopLink)) { $linksLeft += $desktopLink }
     Add-Check 'Shortcuts removed' ($linksLeft.Count -eq 0) ($linksLeft -join ', ')
-    $assocLeft = @()
-    foreach ($key in @('Software\Classes\OpenXTalkLite.Stack', 'Software\Classes\OpenXTalkLite.Script', "Software\Classes\Applications\$ExeName")) {
-        if (Test-RegKey $HKCU $key) { $assocLeft += $key }
-    }
-    foreach ($pair in @(@('.oxtstack', 'OpenXTalkLite.Stack'), @('.oxtscript', 'OpenXTalkLite.Script'))) {
-        if ((Get-RegValue $HKCU "Software\Classes\$($pair[0])" '') -eq $pair[1]) { $assocLeft += "$($pair[0]) (default)" }
-        if ($null -ne (Get-RegValue $HKCU "Software\Classes\$($pair[0])\OpenWithProgids" $pair[1])) { $assocLeft += "$($pair[0])\OpenWithProgids" }
-    }
-    Add-Check 'File associations removed' ($assocLeft.Count -eq 0) ($assocLeft -join ', ')
 }
 catch {
     Add-Check 'Test ran to completion' $false $_.Exception.Message

@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Compiles every IDE script of an installed OpenXTalk-Lite layout and compares
+    Compiles every IDE script of an installed LiveCode layout and compares
     the compile errors with a baseline of known errors.
 
 .DESCRIPTION
     Runs tools/ci/ide-compile-check.livecodescript with the development
     engine, without a user interface (-ui), over an installed layout such as
-    dist/stage/OpenXTalk-Lite-<ver> written by tools/oxt/package.py. The script
+    dist/stage/LegacyOXT-<ver> written by tools/oxt/package.py. The script
     compiles every script-only stack (*.livecodescript, *.oxtscript) under
     Toolset, Plugins and Extensions and every object script of the binary
     stacks (*.livecode, *.rev, *.oxtstack) under Toolset and Plugins. Stacks
@@ -34,11 +34,11 @@
 
 .PARAMETER Root
     The installed layout to check (the folder with Toolset, Plugins and
-    Extensions). Default: the single OpenXTalk-Lite-* folder in
+    Extensions). Default: the single LegacyOXT-* folder in
     <RepoRoot>\dist\stage.
 
 .PARAMETER Engine
-    The development engine to run. Default: <Root>\OpenXTalk-Lite.exe, or
+    The development engine to run. Default: <Root>\LiveCode Community.exe, or
     <RepoRoot>\win-x86_64-bin\LiveCode-Community.exe when the layout has no
     engine (for example one written by "layout.py assemble").
 
@@ -54,7 +54,7 @@
 
 .PARAMETER BaselineSource
     With -UpdateBaseline: a short description of the checked layout for the
-    baseline's header, for example "OpenXTalk Lite 1.15 IDE".
+    baseline's header, for example "LiveCode Community 9.7.0-dp-1 IDE".
 
 .PARAMETER LogFile
     Optional file to write the engine's output and the comparison to.
@@ -89,9 +89,9 @@ if (-not $Root) {
     $stage = Join-Path $RepoRoot 'dist\stage'
     $candidates = @()
     if (Test-Path -LiteralPath $stage -PathType Container) {
-        $candidates = @(Get-ChildItem -LiteralPath $stage -Directory -Filter 'OpenXTalk-Lite-*')
+        $candidates = @(Get-ChildItem -LiteralPath $stage -Directory -Filter 'LegacyOXT-*')
     }
-    if ($candidates.Count -ne 1) { throw "Pass -Root: expected one OpenXTalk-Lite-* folder in $stage, found $($candidates.Count)" }
+    if ($candidates.Count -ne 1) { throw "Pass -Root: expected one LegacyOXT-* folder in $stage, found $($candidates.Count)" }
     $Root = $candidates[0].FullName
 }
 if (-not (Test-Path -LiteralPath (Join-Path $Root 'Toolset') -PathType Container)) {
@@ -100,7 +100,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $Root 'Toolset') -PathType Container
 $Root = (Resolve-Path -LiteralPath $Root).ProviderPath.TrimEnd('\')
 
 if (-not $Engine) {
-    $Engine = Join-Path $Root 'OpenXTalk-Lite.exe'
+    $Engine = Join-Path $Root 'LiveCode Community.exe'
     if (-not (Test-Path -LiteralPath $Engine -PathType Leaf)) {
         $Engine = Join-Path $RepoRoot 'win-x86_64-bin\LiveCode-Community.exe'
     }

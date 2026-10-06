@@ -26,8 +26,8 @@ staged, the build output's binaries and symbols archives, and SHA256SUMS.
 
 --summary is package.py's --summary-json, which gives the platform, the
 stage folder and the build output (a --bin folder or a --bin-tar tarball);
-the options override it. DIR of --stage is the OpenXTalk-Lite-<version> folder.
-Written to --out, where <root> is OpenXTalk-Lite-<version>:
+the options override it. DIR of --stage is the LegacyOXT-<version> folder.
+Written to --out, where <root> is LegacyOXT-<version>:
 
   win-x86_64
     <root>-win-x86_64-portable.zip   every staged file under <root>/, then
@@ -45,10 +45,10 @@ Written to --out, where <root> is OpenXTalk-Lite-<version>:
   mac-<arch>
     <root>-mac-<arch>.dmg                with --dmg (macOS only): a disk
                                          image (hdiutil, UDZO, HFS+, volume
-                                         "OpenXTalk-Lite <version>") holding
-                                         OpenXTalk-Lite.app and a link to
+                                         "LegacyOXT <version>") holding
+                                         the app and a link to
                                          /Applications to drag it onto
-    <root>-mac-<arch>.zip                OpenXTalk-Lite.app: on macOS written by
+    <root>-mac-<arch>.zip                the app: on macOS written by
                                          "ditto -c -k --sequesterRsrc
                                          --keepParent", elsewhere by this
                                          script as ditto stores it
@@ -561,7 +561,7 @@ def write_package(p, stage, out, levels, hardlinks, log):
             raise
         t.close()
         return t.count
-    # macOS: the app alone, as ditto -c -k --keepParent OpenXTalk-Lite.app does
+    # macOS: the app alone, as ditto -c -k --keepParent <app> does
     app = os.path.join(stage, p.engine)
     if not os.path.isdir(app):
         raise DistError('%s has no %s' % (stage, p.engine))
@@ -653,12 +653,14 @@ def write_dmg(p, stage, out, version, log, attempts=4):
 
 
 def licence_entries(p, stage):
-    """The staged licence files: [(file, name at the archive's top)]."""
+    """The licence files of the binaries archives, from the repository root
+    (the installed layout has LiveCode's own License Agreement.txt
+    instead): [(file, name at the archive's top)]."""
     out = []
     for name in package.LICENCE_FILES:
-        path = os.path.join(stage, *(p.tools + name).split('/'))
+        path = os.path.join(package.REPO, name)
         if not os.path.isfile(path):
-            raise DistError('%s is missing from the staged folder' % (p.tools + name))
+            raise DistError('%s is missing from the repository root' % name)
         out.append((path, name))
     return out
 
@@ -728,7 +730,7 @@ class _Router(object):
 
 
 def add_symbols_tar(r, path):
-    """The debug symbols of a CI symbols tarball (OpenXTalk-Lite-linux-<arch>-
+    """The debug symbols of a CI symbols tarball (LegacyOXT-linux-<arch>-
     symbols.tar.xz: the build output folder with only its *.dbg files, for
     extracting over the bin tarball; the macOS one holds the *.dSYM
     bundles) into the symbols archive, under the platform's folder name.
@@ -858,14 +860,14 @@ def _member_name(name):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='Write the distribution archives of a staged OpenXTalk-Lite layout.')
+    ap = argparse.ArgumentParser(description='Write the distribution archives of a staged LegacyOXT layout.')
     ap.add_argument('--summary', metavar='FILE', help='package.py --summary-json output')
     ap.add_argument('--platform', choices=list(package.PLATFORMS))
-    ap.add_argument('--stage', metavar='DIR', help='the staged OpenXTalk-Lite-<version> folder')
+    ap.add_argument('--stage', metavar='DIR', help='the staged LegacyOXT-<version> folder')
     ap.add_argument('--bin', dest='bin_dir', metavar='DIR', help='build output folder')
     ap.add_argument('--bin-tar', metavar='FILE', help='build output as a CI tarball')
     ap.add_argument('--symbols-tar', metavar='FILE',
-                    help='Linux and macOS: the CI\'s debug symbols tarball (OpenXTalk-Lite-<platform>-symbols.tar.xz), '
+                    help='Linux and macOS: the CI\'s debug symbols tarball (LegacyOXT-<platform>-symbols.tar.xz), '
                          'whose symbols join those of the build output in the symbols archive')
     ap.add_argument('--no-binaries', action='store_true', help='write no binaries or symbols archive')
     ap.add_argument('--out', required=True, help='folder for the archives (created; files of the same '

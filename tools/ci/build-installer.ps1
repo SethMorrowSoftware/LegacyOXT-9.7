@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-    Builds the OpenXTalk Lite 1.15 Windows installer with Inno Setup 6.
+    Builds the LegacyOXT (LiveCode Community) Windows installer with Inno Setup 6.
 
 .DESCRIPTION
-    Compiles Installer\openxtalk-lite\openxtalk-lite.iss over a staged installed
+    Compiles Installer\legacyoxt\legacyoxt.iss over a staged installed
     layout (written by tools/oxt/package.py, normally through
     tools/ci/package-windows.ps1) into
 
-      <OutDir>\OpenXTalk-Lite-<version>-win-x86_64-setup.exe
+      <OutDir>\LegacyOXT-<version>-win-x86_64-setup.exe
 
     and then rewrites <OutDir>\SHA256SUMS over all files in OutDir
     ("<sha256>  <file name>", LF line endings, sorted by name).
@@ -24,7 +24,7 @@
 
 .PARAMETER Stage
     The staged installed layout. Default:
-    <OutDir>\stage\OpenXTalk-Lite-<version>.
+    <OutDir>\stage\LegacyOXT-<version>.
 
 .PARAMETER OutDir
     Where the setup program is written and SHA256SUMS is rewritten.
@@ -34,12 +34,12 @@
     Repository root. Default: two levels up from this script.
 
 .PARAMETER Version
-    Product version. Default: the contents of <RepoRoot>\ide\.version. It
-    must match the staged .version.
+    Product version. Default: BUILD_SHORT_VERSION in <RepoRoot>\version
+    (LiveCode's, such as 9.7.0-dp-1).
 
 .PARAMETER BuildNumber
     Build number shown in the setup program's version information. Default:
-    the staged .buildnumber.
+    the environment variable OXT_BUILD_NUMBER, else 0.
 
 .PARAMETER Iscc
     Path to ISCC.exe; skips the search.
@@ -66,20 +66,37 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-$ProductName = 'OpenXTalk-Lite'
+# The package's name; the program keeps LiveCode's names
+$ProductName = 'LegacyOXT'
+$ExeName = 'LiveCode Community.exe'
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+
+# builder/tools_builder.livecodescript getReadableVersion: 9.7.0-dp-1 is
+# "9.7 (dp 1)"; ProductTitle is "LiveCode Community" and that
+function Get-ReadableVersion([string]$v) {
+    $parts = $v.Split('-')
+    $number = $parts[0]
+    $tag = @($parts | Select-Object -Skip 1)
+    if ($tag.Count -gt 0 -and $tag[0] -eq 'gm') { $tag = @() }
+    if ($number.EndsWith('.0')) { $number = $number.Substring(0, $number.Length - 2) }
+    if ($tag.Count -gt 0) { return "$number ($($tag -join ' '))" }
+    return $number
+}
 
 # --- Arguments ---
 if (-not $RepoRoot) { $RepoRoot = Join-Path $PSScriptRoot '..\..' }
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).ProviderPath.TrimEnd('\')
-$script = Join-Path $RepoRoot 'Installer\openxtalk-lite\openxtalk-lite.iss'
+$script = Join-Path $RepoRoot 'Installer\legacyoxt\legacyoxt.iss'
 if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { throw "Installer script not found: $script" }
 
 if (-not $Version) {
-    $versionFile = Join-Path $RepoRoot 'ide\.version'
+    $versionFile = Join-Path $RepoRoot 'version'
     if (-not (Test-Path -LiteralPath $versionFile -PathType Leaf)) { throw "$versionFile not found" }
-    $Version = ([System.IO.File]::ReadAllText($versionFile)).Trim()
+    $m = Select-String -LiteralPath $versionFile -Pattern '^BUILD_SHORT_VERSION = *(.*)$' | Select-Object -First 1
+    if (-not $m) { throw "$versionFile has no BUILD_SHORT_VERSION" }
+    $Version = $m.Matches[0].Groups[1].Value.Trim()
 }
+$ProductTitle = 'LiveCode Community ' + (Get-ReadableVersion $Version)
 # Digits first: the installer's version resource takes the numeric part
 if ($Version -notmatch '^\d+(\.\d+){0,3}([-+][0-9A-Za-z][0-9A-Za-z.+-]*)?$') {
     throw "Version '$Version' is not a version number usable in a file name (for example 0.0.1 or 0.1.0-beta.1)."
@@ -100,7 +117,7 @@ if (($OutDir + '\').StartsWith($Stage + '\', [System.StringComparison]::OrdinalI
 }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-foreach ($required in @("$ProductName.exe", 'LICENSE', '.version', 'Toolset\home.livecodescript')) {
+foreach ($required in @($ExeName, 'License Agreement.txt', 'Toolset\home.livecodescript')) {
     if (-not (Test-Path -LiteralPath (Join-Path $Stage $required) -PathType Leaf)) {
         throw "The staged layout has no $required ($Stage)"
     }
@@ -113,20 +130,13 @@ $hidden = @(Get-ChildItem -LiteralPath $Stage -Recurse -Force |
 if ($hidden.Count -gt 0) {
     throw ("The staged layout has hidden files or folders, which the installer would leave out: " + (($hidden | Select-Object -First 10) -join ', '))
 }
-$stagedVersion = ([System.IO.File]::ReadAllText((Join-Path $Stage '.version'))).Trim()
-if ($stagedVersion -ne $Version) {
-    throw "The staged .version is '$stagedVersion' but the installer version is '$Version'."
-}
-if (-not $BuildNumber) {
-    $buildFile = Join-Path $Stage '.buildnumber'
-    if (Test-Path -LiteralPath $buildFile -PathType Leaf) {
-        $BuildNumber = ([System.IO.File]::ReadAllText($buildFile)).Trim()
-    }
-}
+# LiveCode's layout has no .buildnumber: the CI build number
+if (-not $BuildNumber) { $BuildNumber = $env:OXT_BUILD_NUMBER }
+if (-not $BuildNumber) { $BuildNumber = '0' }
 if ($BuildNumber -notmatch '^\d+$') { throw "Build number '$BuildNumber' is missing or not a number." }
 
 $runnerTemp = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
-$workDir = Join-Path $runnerTemp ('oxtl-installer-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$workDir = Join-Path $runnerTemp ('legacyoxt-installer-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 if (-not $LogFile) {
     if ($env:RUNNER_TEMP) {
         $LogFile = Join-Path $env:RUNNER_TEMP 'build-logs\installer\iscc.log'
@@ -143,7 +153,7 @@ Write-Host "Repository   : $RepoRoot"
 Write-Host "Script       : $script"
 Write-Host "Stage        : $Stage"
 Write-Host "Output       : $setupPath"
-Write-Host "Version      : $Version (build $BuildNumber)"
+Write-Host "Version      : $Version (build $BuildNumber), $ProductTitle"
 
 # --- Locating ISCC.exe ---
 
@@ -214,8 +224,9 @@ try {
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogFile) | Out-Null
 
     $defines = [ordered]@{
-        AppVersion  = $Version
-        BuildNumber = $BuildNumber
+        AppVersion   = $Version
+        ProductTitle = $ProductTitle
+        BuildNumber  = $BuildNumber
         StageDir    = $Stage
         OutputDir   = $OutDir
         RepoRoot    = $RepoRoot

@@ -1,34 +1,10 @@
 {
-  "assets": [
-    {
-      "id": "oxt-runtimes-1.15",
-      "url": "https://github.com/SethMorrowSoftware/OpenXTalk-Beyond/releases/download/runtimes-1.15/oxt-runtimes-1.15.zip",
-      "sha256": "6811d5cc028ea15f7e784ff58c03e4bc8994507f7f56e62fa148a27673cf995a",
-      "size": 199237317,
-      "kind": "zip",
-      "strip": 1,
-      "dest": "",
-      "rename": {
-        "PROVENANCE.md": "PROVENANCE-oxt-runtimes-1.15.md"
-      },
-      "exclude": {
-        "linux-x86_64": [
-          "Runtime/Linux/x86-64/**",
-          "Extensions/com.livecode.library.timezone/code/x86_64-linux/**",
-          "Extensions/com.livecode.library.timezone/resources/**"
-        ],
-        "linux-arm64": [
-          "Extensions/com.livecode.library.timezone/resources/**"
-        ],
-        "mac-*": [
-          "Extensions/com.livecode.library.timezone/code/universal-mac-macosx10.9/**",
-          "Extensions/com.livecode.library.timezone/resources/**"
-        ]
-      },
-      "exclude_note": "The Linux and macOS builds of this repository produce these themselves: the Linux x86-64 standalone runtime (standalone-community with its own externals), the timezone library's native code for their platform and the zoneinfo data (tz.gyp target tzdata, which the Windows build does not make). macOS takes its own universal-mac-macosx code folder instead of 1.15's universal-mac-macosx10.9: the IDE maps every universal-* folder, so both would be loaded. Windows takes the whole asset.",
-      "description": "Standalone runtimes that the Windows x86-64 build does not produce, taken unchanged from OpenXTalk Lite 1.15: Windows x86-32, Linux and Android engines and externals, the timezone library's code for other platforms and its zoneinfo data. See PROVENANCE.md in the archive.",
-      "licence": "GPL-3.0 (LiveCode Community and OpenXTalk Lite engine builds); IANA tz data: public domain; the shared libraries under Runtime/Linux/*/lib keep their own licences (see PROVENANCE.md)",
-      "source": "OpenXTalk Lite 1.15 for Windows (openxtalk-lite-1.15-win-noinstaller.7z), built by Tom Perry; made with tools/oxt/make_runtimes_asset.py"
-    }
-  ]
+  "comment": [
+    "External archives that tools/oxt/package.py installs into every package (see",
+    "fetch_assets.py). None yet: each package has the standalone runtimes its own",
+    "build makes. The runtimes for the other platforms, which LiveCode's installers",
+    "also carried (Installer/package.txt), are to come from this repository's own",
+    "builds in a runtimes asset (tools/oxt/make_runtimes_asset.py --builds)."
+  ],
+  "assets": []
 }

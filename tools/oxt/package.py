@@ -15,46 +15,51 @@
 # You should have received a copy of the GNU General Public License
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
-"""Stage the installed layout of OpenXTalk-Lite for one platform.
+"""Stage the installed layout of LiveCode Community for one platform, as
+LiveCode's own installers laid it out (Installer/package.txt).
 
   python tools/oxt/package.py [--platform P] --repo <repo>
       (--bin <build output> | --bin-tar <CI build tarball>)
       --out <stage-parent> [--build-number N] [--assets-cache DIR]
-      [--no-external-assets] [--no-xtalk-extensions] [--xtalk-compiler-bin DIR]
-      [--vc-redist DIR] [--allow-unpinned-vc-runtime] [--xtalk-cache DIR]
+      [--no-external-assets] [--no-xtalk-extensions]
       [--eol lf|crlf|keep] [--allow-single-arch] [--summary-json FILE]
       [--compare <reference install or TSV> [--report FILE]]
 
 P chooses the layout (PLATFORMS below; default win-x86_64):
 
-  win-x86_64     OpenXTalk-Lite.exe and everything else in one folder: what the
-                 portable zip holds and Inno Setup installs. --bin defaults
-                 to <repo>/win-x86_64-bin.
-  linux-x86_64   the engine as OpenXTalk-Lite and everything else in one folder:
-                 what the portable tar.xz holds. --bin defaults to
-                 <repo>/linux-x86_64-bin.
+  win-x86_64     "LiveCode Community.exe" and everything else in one folder:
+                 what the portable zip holds and the installer installs.
+                 --bin defaults to <repo>/win-x86_64-bin.
+  linux-x86_64   the engine as "LiveCode Community.x86_64" (package.txt
+                 Engine.Linux) and everything else in one folder: what the
+                 tar.xz holds. --bin defaults to <repo>/linux-x86_64-bin.
   linux-arm64    the same from an arm64 build, for staging only: the IDE has
-                 no Linux arm64 standalone target and that build has no CEF,
-                 so there is no browser and no Runtime folder of its own.
-  mac-universal  OpenXTalk-Lite.app, with everything the other layouts have at
-                 their root in OpenXTalk-Lite.app/Contents/Tools, from a build
-                 whose Mach-O files hold arm64 and x86_64 (the lipo merge of
-                 the two CI builds). --bin defaults to <repo>/_build/mac/Release.
+                 no Linux arm64 standalone target and that build has no CEF.
+  mac-universal  "LiveCode Community <version>.app" (LiveCode's installers'
+                 name: ProductTitle, such as "LiveCode Community 9.7
+                 (dp 1).app"), with everything the other layouts have at
+                 their root in its Contents/Tools, from a build whose Mach-O
+                 files hold arm64 and x86_64 (the lipo merge of the two CI
+                 builds). --bin defaults to <repo>/_build/mac/Release.
   mac-arm64, mac-x86_64
-                 OpenXTalk-Lite.app from one architecture's build, to check the
-                 layout; --allow-single-arch lets mac-universal take one too.
+                 the app from one architecture's build, to check the layout;
+                 --allow-single-arch lets mac-universal take one too.
   win-x86, linux-x86
                  the 32-bit builds, which are made for their standalone
                  runtimes (Runtime/Windows/x86-32, Runtime/Linux/x86-32):
                  tools/oxt/make_runtimes_asset.py --builds takes those from
-                 them with this script's tables, for the runtimes asset that
-                 every package installs. They are not packaged themselves.
+                 them with this script's tables. They are not packaged
+                 themselves.
+
+The program files keep LiveCode's names; only the package (its folder,
+files and installer) is LegacyOXT's: <stage-parent>/LegacyOXT-<version>/,
+where <version> is BUILD_SHORT_VERSION of the file version (9.7.0-dp-1).
 
 --bin-tar takes the build output as the tarball a CI build uploads
-(OpenXTalk-Lite-linux-<arch>-bin.tar.xz, OpenXTalk-Lite-mac-<arch>-bin.tar.xz):
-its one top-level folder is extracted into a temporary folder first,
-without the debug symbols (*.dbg, *.dSYM, *.pdb) and macOS tar's "._"
-AppleDouble files, keeping file modes and symbolic links.
+(LegacyOXT-linux-<arch>-bin.tar.xz, LegacyOXT-mac-<arch>-bin.tar.xz): its
+one top-level folder is extracted into a temporary folder first, without
+the debug symbols (*.dbg, *.dSYM, *.pdb) and macOS tar's "._" AppleDouble
+files, keeping file modes and symbolic links.
 
 The Linux and macOS layouts are Unix trees, so they are staged on Linux or
 macOS (or WSL, under a Linux path such as /tmp: a Windows drive such as
@@ -62,11 +67,10 @@ macOS (or WSL, under a Linux path such as /tmp: a Windows drive such as
 package_dist.py refuse it, as a probe file shows), never on Windows,
 which keeps neither modes nor symbolic links:
 
-  modes        executable build outputs (any x bit) and native libraries
-               (of the xTalk extensions, and asset members stored with an
-               x bit) get 0755, every other file 0644 and every folder 0755,
-               whatever the umask or the checkout (git marks some IDE
-               images executable).
+  modes        executable build outputs (any x bit) and asset members
+               stored with an x bit get 0755, every other file 0644 and
+               every folder 0755, whatever the umask or the checkout (git
+               marks some IDE images executable).
   links        a symbolic link inside a build output folder is staged as
                the same (relative) link; one that leads out of its folder
                or is absolute is an error. A build output named directly
@@ -74,16 +78,14 @@ which keeps neither modes nor symbolic links:
   names        two paths that differ only in letter case are a conflict on
                Windows and macOS (whose volumes are usually
                case-insensitive), not on Linux.
-  text         generated files (Externals.txt, Database Drivers.txt),
-               Extensions/XTALK-EXTENSIONS.txt and the licence files get
-               LF line endings; CRLF on Windows.
+  text         generated files (Externals.txt, Database Drivers.txt) get LF
+               line endings; CRLF on Windows.
 
-writes <stage-parent>/OpenXTalk-Lite-<version>/, where <version> is the content
-of ide/.version. An existing folder of that name is replaced. The folder is
-what the platform's package holds (the portable zip and the installer on
-Windows, the tar.xz on Linux; on macOS the folder holds OpenXTalk-Lite.app). It
-is put together from (paths relative to the tools folder, which is the
-stage folder itself except on macOS):
+An existing stage folder is replaced. The folder is what the platform's
+package holds (the portable zip and the installer on Windows, the tar.xz on
+Linux; on macOS the folder holds the app). It is put together from (paths
+relative to the tools folder, which is the stage folder itself except on
+macOS):
 
   IDE          tools/oxt/layout.py assemble: ide/Toolset, Plugins, Resources,
                Documentation, Extensions, the ide/ root files and the 11
@@ -92,72 +94,46 @@ stage folder itself except on macOS):
                Resources/Mobile Examples: package.txt Mobile.MacOSX). Text
                files get LF line endings (--eol) so that the result does
                not depend on git's core.autocrlf.
+  Ext          package.txt component Ext ("ext:Ext"): the mergExt bundle
+               that LiveCode's builder downloaded (mergExt_Community
+               2021-6-16, builder_utilities kMergExtVersion), byte for byte
+               as LiveCode Community 9.6.3's installers have it, from
+               EXT_DIR. Every platform, as package.txt installs it.
   build        the files of --bin that Installer/package.txt installs on the
                platform, at its installed paths (see Platform and plan_build);
-               the development engine becomes OpenXTalk-Lite.exe, OpenXTalk-Lite or
-               OpenXTalk-Lite.app. The platform's not_installed list gives the
-               build outputs that are left out, and why.
+               the development engine gets package.txt's name. The
+               platform's not_installed list gives the build outputs that
+               are left out, and why.
   generated    edition.txt ("community"), Externals/Externals.txt and
                Externals/Database Drivers/Database Drivers.txt (at the root
-               and under every runtime folder), .buildnumber (the build
-               number), two empty dictionary folders (EMPTY_DIRS) and, on
-               macOS, the app's Info.plist (mac_info_plist: the build's,
-               with OpenXTalk-Lite's bundle id, name, version, copyright,
-               icon and document types, the renamed executable, the
-               layout's architectures, arm64 first, and the lowest
-               minimum macOS of the engine's slices) and its icon,
-               Contents/Resources/OpenXTalk-Lite.icns (tools/oxt/icns.py,
-               from Installer/openxtalk-lite/branding/png).
-  licences     LICENSE (LiveCode Community's, as Tom Perry's tree has it) from
-               the repository root (CRLF line endings on Windows).
+               and under every runtime folder) and, on macOS, the app's
+               Info.plist: the build's, with only what a universal app
+               needs (mac_info_plist: the layout's architectures, arm64
+               first, and the lowest minimum macOS of the engine's slices).
   assets       the archives in tools/oxt/external-assets.json (see
                fetch_assets.py), unless --no-external-assets.
-  xtalk        the xTalk Suite extensions of tools/oxt/xtalk-extensions.json
-               under Extensions/, byte for byte as
-               tools/oxt/xtalk_extensions.py fetches and builds them (with
-               the lc-compile of --xtalk-compiler-bin, default --bin: the
-               compiled modules do not depend on the platform, so a macOS
-               layout can be staged on Linux with a Linux build's compiler)
-               in a temporary folder, plus Extensions/XTALK-EXTENSIONS.txt
-               (with the platform's line endings); unless
-               --no-xtalk-extensions. Every platform gets the native
-               libraries of every platform id in the manifest, so that
-               standalones for the other platforms can be built.
-               --vc-redist is Visual Studio's redistributable folder
-               (VCToolsRedistDir): the Visual C++ runtime DLLs that enetxt
-               and box2dxt import are then copied next to them, and each
-               must be the one the manifest's "vc_runtime" pins
-               (--allow-unpinned-vc-runtime only warns); without
-               --vc-redist packaging warns, and those two libraries cannot
-               load on a PC without the Visual C++ Redistributable. The
-               cache is --xtalk-cache, else OXT_XTALK_CACHE, else <asset
-               cache>/xtalk.
-  desktop      Linux only: the launcher openxtalk-lite, install.sh and
-               uninstall.sh (mode 0755) and linux/ with the desktop entry,
-               the MIME types, the icons and the library list the launcher
-               checks, from Installer/linux and the branding PNGs
-               (LINUX_DESKTOP).
+  desktop      Linux only: install.sh and uninstall.sh (mode 0755) and
+               linux/ with LiveCode's desktop entry and icon
+               (Installer/application.desktop and application.png, with
+               package.txt's variables filled in), from LINUX_DESKTOP.
 
 The build number is --build-number, else the environment variable
-OXT_BUILD_NUMBER, else the current UTC time as YYYYMMDDHHMM. It identifies
-the CI build (the macOS CFBundleVersion and the long version string); the
-IDE's own .buildnumber is Tom Perry's ide/.buildnumber unchanged
-(202605052228 for 1.15), which his IDE shows and his updater compares, as
-in his release.
+OXT_BUILD_NUMBER, else the current UTC time as YYYYMMDDHHMM. It names the
+CI build in the summary; LiveCode's IDE has no .buildnumber file.
 
 A warning says when the stage path has a folder name that makes the engine
 run the IDE in repository mode (see repository_mode_trap): a package must
 be tested from a neutral path.
 
 --compare (win-x86_64 only) checks the staged tree against a reference
-install (for example OpenXTalk Lite 1.15) or a TSV from "layout.py
+install (for example LiveCode Community 9.6.3) or a TSV from "layout.py
 classify" (also a part of one, such as only its build rows): every IDE,
 build and external path of the reference must be staged (the engine under
-its new name) unless an intended difference (INTENDED_MISSING) says why not,
-and every staged path of the classes the reference lists must be in it
-unless it is an intended addition (licence files, asset notices). With a
-folder, external asset files must be byte-identical and empty folders must
-match. IDE changes since the reference are listed but are not errors.
+its installed name) unless an intended difference (INTENDED_MISSING) says
+why not, and every staged path of the classes the reference lists must be
+in it unless it is an intended addition. With a folder, external asset
+files must be byte-identical and empty folders must match. IDE changes
+since the reference are listed but are not errors.
 
 Exit status: 0 success, 1 unexplained differences (--compare), 2 errors
 (missing build outputs, conflicts, asset download or checksum failures;
@@ -192,21 +168,67 @@ import layout  # noqa: E402
 import fetch_assets  # noqa: E402
 import xtalk_extensions  # noqa: E402
 
-PRODUCT = 'OpenXTalk-Lite'
+# The package's own name: its folder, its files and its installer. The
+# program inside keeps LiveCode's names (below).
+PRODUCT = 'LegacyOXT'
 EDITION = 'community'
 BUILD_NUMBER_ENV = 'OXT_BUILD_NUMBER'
+REPO = os.path.dirname(os.path.dirname(HERE))
 
-# LiveCode Community's LICENSE as Tom Perry's tree has it: the GPLv3 with
-# LiveCode Ltd's permission for OpenSSL and ATL at its top. The IDE's own
-# "Open Source Licenses.txt" lists the third-party components.
+
+def engine_version(repo):
+    try:
+        with open(os.path.join(repo, 'version'), encoding='utf-8') as f:
+            for line in f:
+                m = re.match(r'^\s*BUILD_SHORT_VERSION\s*=\s*(\S+)\s*$', line)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return ''
+
+
+def readable_version(version):
+    """builder/tools_builder.livecodescript getReadableVersion: 9.7.0-dp-1
+    becomes "9.7 (dp 1)", 9.6.3 stays "9.6.3" (and a "gm" tag goes)."""
+    parts = version.split('-')
+    number, tag = parts[0], parts[1:]
+    if tag and tag[0] == 'gm':
+        tag = []
+    if number.endswith('.0'):
+        number = number[:-2]
+    return number + (' (%s)' % ' '.join(tag) if tag else '')
+
+
+# LiveCode's names (builder/tools_builder.livecodescript): ProductName
+# "LiveCode" and the edition's display name, ProductTitle that and the
+# readable version, ProductTag the name in lower case without spaces, "_"
+# and the version with "_" for "." and "-". Installer/package.txt names the
+# engine [[ProductName]].exe on Windows, [[ProductName]].<arch> on Linux and
+# the macOS app [[ProductTitle]].app (installeruistackbehavior
+# thisProductFolder).
+LIVECODE_NAME = 'LiveCode Community'
+LIVECODE_VERSION = engine_version(REPO)
+LIVECODE_TITLE = LIVECODE_NAME + ' ' + readable_version(LIVECODE_VERSION)
+LIVECODE_TAG = 'livecodecommunity_' + re.sub(r'[.-]', '_', LIVECODE_VERSION)
+
+# The licence files of the binaries archives (package_dist.py): LiveCode
+# Community's LICENSE, the GPLv3 with LiveCode Ltd's permission for OpenSSL
+# and ATL at its top. The installed layout has LiveCode's own "License
+# Agreement.txt" (the same terms) and "Open Source Licenses.txt", from the
+# IDE, as LiveCode's installers have them (package.txt Misc), so
+# STAGE_LICENCE_FILES adds nothing to it.
 LICENCE_FILES = ('LICENSE',)
+STAGE_LICENCE_FILES = ()
 
-# Folders that must exist although git cannot store them: the dictionary
-# (Documentation/oxt_dictionary.oxtstack) writes exports into them.
-EMPTY_DIRS = (
-    'Documentation/html_viewer/resources/data/api/exports/builder/plugins',
-    'Documentation/html_viewer/resources/data/api/exports/datagrid/plugins',
-)
+# Folders that must exist although git cannot store them: none
+EMPTY_DIRS = ()
+
+# package.txt component Ext ("ext:Ext"): the mergExt bundle that LiveCode's
+# builder downloaded (mergExt_Community_2021-6-16.zip from
+# downloads.livecode.com, which no longer serves it), byte for byte as
+# LiveCode Community 9.6.3's installers install it (see its README.md)
+EXT_DIR = 'Installer/legacyoxt/ext/Ext'
 
 # components Extensions and TimeZone: the same 42 ids layout.py knows
 PACKAGED_EXTENSIONS = layout.REPO_BUILT_EXTENSIONS
@@ -220,9 +242,9 @@ PACKAGED_EXTENSIONS = layout.REPO_BUILT_EXTENSIONS
 # Build outputs that no platform installs (pattern, reason)
 _NOT_IN_PACKAGE_TXT = (
     ('packaged_extensions/com.livecode.library.canvas/**',
-     'not in package.txt Extensions (not shipped by LiveCode 9.6.3 or OpenXTalk Lite 1.15)'),
+     'not in package.txt Extensions (LiveCode 9.6.3 does not ship it either)'),
     ('packaged_extensions/com.livecode.library.ini/**',
-     'not in package.txt Extensions (not shipped by LiveCode 9.6.3 or OpenXTalk Lite 1.15)'),
+     'not in package.txt Extensions (LiveCode 9.6.3 does not ship it either)'),
 )
 # Tools that the Linux and macOS builds make to build themselves, at the
 # top of the build output (the gentle/reflex/perfect parser generators of
@@ -333,7 +355,8 @@ def _windows(arch):
         'win-' + arch, 'windows', arch,
         bin_default='win-%s-bin' % arch,
         dev_engine='LiveCode-Community.exe',
-        engine=PRODUCT + '.exe',
+        # component Engine.Windows: [[ProductName]].exe
+        engine=LIVECODE_NAME + '.exe',
         component='Windows',
         # component Externals.Windows (declare external lines in this order)
         externals=externals,
@@ -370,7 +393,7 @@ def _windows(arch):
                        externals=True),),
         not_installed=(
             ('*.pdb', 'debug symbols; they go into the -symbols.zip'),
-            ('installer.exe', 'LiveCode\'s installer engine; OpenXTalk-Lite is installed by Inno Setup'),
+            ('installer.exe', 'LiveCode\'s installer engine; LegacyOXT installs with Inno Setup'),
             ('server-*', 'LiveCode Server engine and its externals; package.txt installs no server'),
             ('Externals/CEF/devtools_resources.pak', 'not in package.txt Externals.CEF.Windows'),
             ('Externals/CEF/libbrowser-cefprocess.exe',
@@ -394,7 +417,7 @@ def _linux(arch):
         externals += (('Browser', 'revbrowser.so'),)
     not_installed = (
         ('*.dbg', 'debug symbols (objcopy --only-keep-debug); they go into the -symbols archive'),
-        ('installer', 'LiveCode\'s installer engine; OpenXTalk-Lite ships a portable folder'),
+        ('installer', 'LiveCode\'s installer engine; LegacyOXT ships the folder and install.sh'),
         ('server-*', 'LiveCode Server engine and its externals; package.txt installs no server'),
         ('Externals/CEF/chrome-sandbox',
          'CEF\'s setuid sandbox helper: CEF runs with no_sandbox (libbrowser_cef.cpp, cefbrowser.cpp), '
@@ -413,10 +436,8 @@ def _linux(arch):
         'linux-' + arch, 'linux', arch,
         bin_default='linux-%s-bin' % arch,
         dev_engine='LiveCode-Community',
-        # package.txt: [[ProductName]].[[TargetArchitecture]]; the Linux
-        # package has one architecture and a launcher script, so the plain
-        # name is enough (and what the .desktop file and docs say)
-        engine=PRODUCT,
+        # component Engine.Linux: [[ProductName]].[[TargetArchitecture]]
+        engine=LIVECODE_NAME + '.' + arch,
         component='Linux',
         # component Externals.Linux (no revspeech on Linux)
         externals=externals,
@@ -444,86 +465,11 @@ def _linux(arch):
         elf_arch=arch)
 
 
-# The app's identity (mac_info_plist). The bundle id belongs to this
-# rebuild, under the project's GitHub account, so that macOS keeps its
-# preferences, document bindings and permissions apart from LiveCode's
-# (com.runrev.livecode) and from any other OpenXTalk build.
-MAC_BUNDLE_ID = 'io.github.sethmorrowsoftware.openxtalk-lite'
-# The app's name as macOS shows it, Tom Perry's (his apply_openxtalk_patches.sh
-# and build scripts set CFBundleName to it)
-MAC_APP_NAME = 'OpenXTalk Lite'
-MAC_ICON = PRODUCT + '.icns'
-# Tom Perry's macOS app icon (patches/OpenXTalk-lite_1024.icns in his macOS
-# source trees, which his integrate_openxtalk_icon.sh installed as the app
-# icon), copied unchanged
-MAC_ICON_FILE = 'Installer/openxtalk-lite/branding/OpenXTalk-Lite.icns'
-# Files of Tom Perry's Windows release (openxtalk-lite-1.15-win-noinstaller.7z)
-# that no source tree has, kept unchanged (see the README.md there)
-TOM_RELEASE_DIR = 'Installer/openxtalk-lite/from-tom-release'
-# The document types the app registers: (UTI, extension, name, the
-# types it conforms to). A script-only stack is plain text, so .oxtscript
-# conforms to public.script (source code, plain text: Quick Look and text
-# editors can show it); a binary stack is data. The names are the
-# installer's (openxtalk-lite.iss). No document icon is named: macOS 11 and
-# later draw one from the app icon, and the 10.13 to 10.15 Finder shows
-# its generic document icon.
-MAC_DOCUMENT_TYPES = (
-    (MAC_BUNDLE_ID + '.stack', 'oxtstack', PRODUCT + ' Stack', ['public.data', 'public.content']),
-    (MAC_BUNDLE_ID + '.script', 'oxtscript', PRODUCT + ' Script-Only Stack', ['public.script']),
-)
+def mac_info_plist(plist, archs, minimum):
+    """The app's Info.plist: the build's (engine/rsrc/LiveCode-Info.plist
+    as Xcode wrote it: LiveCode's bundle id, names, version, icons and
+    document types, which stay), with only what the universal app needs:
 
-
-def mac_copyright():
-    """NSHumanReadableCopyright: who made what (as the installer's
-    AppComments say it), and the licence. LiveCode Ltd's years are those of
-    the engine's own Info.plist."""
-    return ('OpenXTalk Lite 1.15 by Terry Little, Tom Perry and the OpenXTalk contributors, '
-            'based on LiveCode Community, copyright 2000-2020 LiveCode Ltd. '
-            'Free software under the GNU General Public License version 3.')
-
-
-def mac_bundle_version(build_number):
-    """CFBundleVersion for a build number: at most three period-separated
-    integers (Apple's rule for the key; tools reject more, and some read
-    each part as a 32-bit integer). The default build number, the UTC time
-    as YYYYMMDDHHMM (default_build_number), becomes YYYY.MMDD.HHMM without
-    leading zeros (202609300506 -> 2026.930.506), which compares in the
-    order of the builds; another build number of up to 9 digits is used as
-    it is."""
-    digits = str(build_number)
-    if re.match(r'^[0-9]{12}$', digits):
-        return '%d.%d.%d' % (int(digits[:4]), int(digits[4:8]), int(digits[8:]))
-    if re.match(r'^[0-9]{1,9}$', digits):
-        return str(int(digits))
-    raise PackageError('build number %r cannot be a macOS CFBundleVersion: use the UTC time as '
-                       'YYYYMMDDHHMM (the default) or at most 9 digits' % build_number)
-
-
-def mac_info_plist(plist, version, build_number, archs, executable, minimum):
-    """The app's Info.plist from the build's (engine/rsrc/LiveCode-Info.plist
-    as Xcode wrote it, with the engine's version and Xcode's DT* keys,
-    which stay). What changes:
-
-      CFBundleExecutable      the renamed executable
-      CFBundleIdentifier      MAC_BUNDLE_ID (LiveCode's is com.runrev.livecode)
-      CFBundleName,           MAC_APP_NAME, "OpenXTalk Lite", as Tom Perry's
-      CFBundleDisplayName     macOS app scripts set it (the menu bar and
-                              the Dock show it)
-      CFBundleShortVersionString
-                              ide/.version, as the user sees it
-      CFBundleVersion         the build number (mac_bundle_version):
-                              the UTC build time 202609291200 as
-                              2026.929.1200. Apple allows at most three
-                              period-separated integers here; the build
-                              time is higher for every build, so that
-                              LaunchServices prefers the newer of two
-                              copies
-      CFBundleGetInfoString,  OpenXTalk-Lite's version and the engine's
-      CFBundleLongVersionString
-      NSHumanReadableCopyright
-                              mac_copyright()
-      CFBundleIconFile        MAC_ICON, made from the branding PNGs
-      NSHighResolutionCapable true (as LiveCode's)
       LSArchitecturePriority  the layout's architectures, arm64 first.
                               LiveCode's says x86_64, i386, from its Intel
                               days; LaunchServices starts the first listed
@@ -535,122 +481,64 @@ def mac_info_plist(plist, version, build_number, archs, executable, minimum):
                               11.0 for arm64, 10.13 for x86_64; a universal
                               app must declare its lowest slice's, or
                               Intel Macs below 11 refuse it)
-      CFBundleDocumentTypes   MAC_DOCUMENT_TYPES as the owner (rank Owner),
-                              then LiveCode's (.rev, .livecode,
-                              .livecodescript) with rank Alternate: the app
-                              opens them, but does not take them over from
-                              an installed LiveCode, as on Windows, where
-                              the installer associates only .oxtstack and
-                              .oxtscript
-      UTExportedTypeDeclarations
-                              the types of MAC_DOCUMENT_TYPES
-      UTImportedTypeDeclarations
-                              LiveCode's types (com.runrev.*), which the
-                              build exports although LiveCode owns them;
-                              its two declarations of
-                              com.runrev.livecode.stack (.livecode and
-                              .livecodescript) become one, since
-                              LaunchServices keeps only one per identifier
     """
     out = dict(plist)
-    engine_version = plist.get('CFBundleShortVersionString') or '?'
-    info = '%s %s (build %s), engine %s' % (PRODUCT, version, build_number, engine_version)
-    out.update({
-        'CFBundleExecutable': executable,
-        'CFBundleIdentifier': MAC_BUNDLE_ID,
-        'CFBundleName': MAC_APP_NAME,
-        'CFBundleDisplayName': MAC_APP_NAME,
-        'CFBundleShortVersionString': version,
-        'CFBundleVersion': mac_bundle_version(build_number),
-        'CFBundleGetInfoString': info,
-        'CFBundleLongVersionString': info,
-        'NSHumanReadableCopyright': mac_copyright(),
-        'CFBundleIconFile': MAC_ICON,
-        'NSHighResolutionCapable': True,
-        'LSArchitecturePriority': list(archs),
-    })
+    out['LSArchitecturePriority'] = list(archs)
     if minimum:
         out['LSMinimumSystemVersion'] = minimum
-    types = [collections.OrderedDict([('CFBundleTypeName', name), ('CFBundleTypeRole', 'Editor'),
-                                      ('LSHandlerRank', 'Owner'), ('LSItemContentTypes', [uti])])
-             for uti, _, name, _ in MAC_DOCUMENT_TYPES]
-    for t in plist.get('CFBundleDocumentTypes', []):
-        t = dict(t)
-        t['LSHandlerRank'] = 'Alternate'
-        types.append(t)
-    out['CFBundleDocumentTypes'] = types
-    out['UTExportedTypeDeclarations'] = [
-        collections.OrderedDict([('UTTypeIdentifier', uti), ('UTTypeDescription', name),
-                                 ('UTTypeConformsTo', conforms),
-                                 ('UTTypeTagSpecification', {'public.filename-extension': [ext]})])
-        for uti, ext, name, conforms in MAC_DOCUMENT_TYPES]
-    imported = collections.OrderedDict()
-    for d in plist.get('UTExportedTypeDeclarations', []) + plist.get('UTImportedTypeDeclarations', []):
-        uti = d.get('UTTypeIdentifier')
-        if uti not in imported:
-            imported[uti] = dict(d, UTTypeTagSpecification=dict(d.get('UTTypeTagSpecification', {})))
-            continue
-        tags = imported[uti]['UTTypeTagSpecification']
-        exts = tags.get('public.filename-extension', [])
-        exts = [exts] if isinstance(exts, str) else list(exts)
-        more = d.get('UTTypeTagSpecification', {}).get('public.filename-extension', [])
-        for e in ([more] if isinstance(more, str) else more):
-            if e not in exts:
-                exts.append(e)
-        tags['public.filename-extension'] = exts
-    out['UTImportedTypeDeclarations'] = list(imported.values())
     return out
-# The Linux package's own files (origin "desktop"), from the repository:
-# (repository path, installed path, executable, kind). kind "text" is
-# written with LF line endings whatever the checkout has (the scripts must
-# run under sh; the list is read line by line), "binary" byte for byte, and
-# "desktop" is the desktop entry, whose @WM_CLASS@ becomes the X window
-# class the engine gives the IDE's windows (lnxstack.cpp: "livecode", the
-# edition and the engine version, with "." and "-" as "_"), so that a dock
-# shows the running IDE under its menu entry.
+
+
+# The Linux package's own files (origin "desktop"): (repository path,
+# installed path, executable, kind). kind "script" is written with LF line
+# endings whatever the checkout has (the scripts must run under sh), with
+# linux_script_values filled in for its @NAME@s; "binary" byte for byte;
+# "desktop" is LiveCode's desktop entry with package.txt's variables filled
+# in (linux_desktop_entry; [[TargetFolder]] stays for install.sh, which
+# knows where the folder goes).
 #
-#   openxtalk-lite     the launcher: checks the system libraries of
-#                  linux/libraries.txt, turns the browser off where CEF
-#                  cannot load (LIVECODE_USE_CEF=0) and starts the engine
-#   install.sh     the per-user install: the program into
-#   uninstall.sh   ~/.local/share/openxtalk-lite, the desktop entry, the icons,
-#                  the MIME types and ~/.local/bin/openxtalk-lite; and its undo
-#   linux/         what install.sh installs (the desktop entry's Exec and
-#                  TryExec become the launcher's absolute path) and the
-#                  library list; the icons are the branding PNGs, in the
-#                  sizes of install.sh's icon_sizes
-#
-# The engine keeps its name OpenXTalk-Lite: the IDE and the engine find the
-# tools folder from the engine's own path (/proc/self/exe), which exec
-# keeps, and the CEF helper libbrowser-cefprocess next to it.
-# Installer/openxtalk-lite/branding/png was made from Tom Perry's Windows
-# icon, ide/OpenXTalk-lite_1024.ico (see ico_to_png.py there)
-LINUX_ICON_SIZES = (16, 24, 32, 48, 64, 128, 256, 512)
+#   install.sh     the per-user install, where LiveCode's installer put a
+#   uninstall.sh   user's copy (installeruistackbehavior
+#                  defaultThisUserLocation): the program folder into
+#                  ~/.runrev/components/<tag>-<version>.<arch>, and
+#                  LiveCode's desktop entry and icon (package.txt "desktop
+#                  application" and "desktop icon", named
+#                  runrev-<ProductTag>-<arch>); and its undo
+#   linux/         what install.sh installs
+LINUX_DESKTOP_NAME = 'runrev-%s-%%s' % LIVECODE_TAG
 LINUX_DESKTOP = (
-    ('Installer/linux/openxtalk-lite', 'openxtalk-lite', True, 'text'),
-    ('Installer/linux/install.sh', 'install.sh', True, 'text'),
-    ('Installer/linux/uninstall.sh', 'uninstall.sh', True, 'text'),
-    ('Installer/linux/libraries.txt', 'linux/libraries.txt', False, 'text'),
-    ('Installer/linux/openxtalk-lite.desktop', 'linux/openxtalk-lite.desktop', False, 'desktop'),
-    ('Installer/linux/openxtalk-lite.xml', 'linux/openxtalk-lite.xml', False, 'text'),
-) + tuple(('Installer/openxtalk-lite/branding/png/openxtalk-lite-%d.png' % n, 'linux/icons/openxtalk-lite-%d.png' % n,
-           False, 'binary') for n in LINUX_ICON_SIZES)
+    ('Installer/legacyoxt/linux/install.sh', 'install.sh', True, 'script'),
+    ('Installer/legacyoxt/linux/uninstall.sh', 'uninstall.sh', True, 'script'),
+    ('Installer/application.desktop', 'linux/%s.desktop' % LINUX_DESKTOP_NAME, False, 'desktop'),
+    ('Installer/application.png', 'linux/%s.png' % LINUX_DESKTOP_NAME, False, 'binary'),
+)
 
 
-def ide_window_class(repo):
-    """The WM_CLASS of the IDE's windows on Linux (MCStack::sethints in
-    engine/src/lnxstack.cpp: "livecode", the edition and "_" and the
-    engine's BUILD_SHORT_VERSION, with "." and "-" replaced by "_"), or
-    None without a version file."""
-    version = engine_version(repo)
-    if not version:
-        return None
-    return re.sub(r'[.-]', '_', 'livecode%s_%s' % (EDITION, version))
+def linux_desktop_entry(data, arch):
+    """Installer/application.desktop with package.txt's variables for this
+    package: ProductTitle, ProductTag, ProductName and TargetArchitecture.
+    [[TargetFolder]] is left for install.sh."""
+    for name, value in (('ProductTitle', LIVECODE_TITLE), ('ProductTag', LIVECODE_TAG),
+                        ('ProductName', LIVECODE_NAME), ('TargetArchitecture', arch)):
+        data = data.replace(('[[%s]]' % name).encode('ascii'), value.encode('utf-8'))
+    return data
+
+
+def linux_script_values(arch):
+    """The @NAME@s of the install scripts. INSTALL_NAME is the folder name
+    of LiveCode's per-user install (installeruistackbehavior
+    thisProductFolder: the installer's uProductTag, "livecodecommunity-"
+    and the version, "." and the processor)."""
+    return {'TITLE': LIVECODE_TITLE,
+            'ENGINE': LIVECODE_NAME + '.' + arch,
+            'INSTALL_NAME': 'livecodecommunity-%s.%s' % (LIVECODE_VERSION, arch),
+            'DESKTOP_NAME': LINUX_DESKTOP_NAME % arch}
 
 
 def plan_linux_desktop(pl, repo):
-    """The Linux package's launcher, install scripts and desktop files
-    (LINUX_DESKTOP)."""
+    """The Linux package's install scripts and LiveCode's desktop entry and
+    icon (LINUX_DESKTOP)."""
+    arch = pl.p.arch
     for rel, target, executable, kind in LINUX_DESKTOP:
         path = layout.native(repo, rel)
         try:
@@ -662,83 +550,49 @@ def plan_linux_desktop(pl, repo):
         if kind != 'binary':
             data = layout._normalise(data)
         if kind == 'desktop':
-            wm_class = ide_window_class(repo)
-            if not wm_class:
-                pl.problems.append('%s: no BUILD_SHORT_VERSION in %s for the window class'
-                                   % (rel, os.path.join(repo, 'version')))
+            data = linux_desktop_entry(data, arch)
+            left = sorted(set(re.findall(rb'\[\[(\w+)\]\]', data)) - {b'TargetFolder'})
+            if left:
+                pl.problems.append('%s: no value for %s' % (rel, ', '.join(x.decode() for x in left)))
                 continue
-            if b'@WM_CLASS@' not in data:
-                pl.problems.append('%s has no @WM_CLASS@ to fill in' % rel)
+        if kind == 'script':
+            for name, value in linux_script_values(arch).items():
+                data = data.replace(('@%s@' % name).encode('ascii'), value.encode('utf-8'))
+            left = sorted(set(re.findall(rb'@([A-Z_]+)@', data)))
+            if left:
+                pl.problems.append('%s: no value for @%s@' % (rel, '@, @'.join(x.decode() for x in left)))
                 continue
-            data = data.replace(b'@WM_CLASS@', wm_class.encode('ascii'))
-        pl.add(Item(target, 'desktop', data=data, executable=executable,
-                    note='%s%s' % (rel, ' (StartupWMClass=%s)' % wm_class if kind == 'desktop' else '')))
+        target = target.replace('%s', arch)
+        pl.add(Item(target, 'desktop', data=data, executable=executable, note=rel))
 
 
-# The macOS runtime folders, as the IDE's standalone builder uses them
-# (revsblibrary revEngineCheck and revSBEnginePath, revsaveasstandalone
-# revStandalonePlatformDetails and revSaveAsMacStandalone):
-#
-#   x86-64, x64-ARM64  the engines deployed for the Intel and the Apple
-#                      Silicon target, with their Support folders (and
-#                      Externals; see below).
-#   arm64              only an Externals folder. For the Apple Silicon
-#                      target revStandalonePlatformDetails takes Support
-#                      from "Mac OS X/x64-ARM64" but passes the
-#                      architecture "arm64", and revExternalPath and
-#                      revDBDriverPath (revbackscriptlibrary) then read
-#                      Mac OS X/arm64/Externals/Externals.txt and
-#                      .../Database Drivers/Database Drivers.txt: without
-#                      this folder an Apple Silicon standalone gets no
-#                      revXML, revZip, revDB, revBrowser, revSpeech or
-#                      database driver, and the builder only warns (so a
-#                      test app without externals cannot catch it; see
-#                      the README). x64-ARM64/Externals stays too, because
-#                      revStandaloneDatabaseDriversPath warns when the
-#                      target folder's Externals is missing. The copy costs
-#                      about 4.5 MB per architecture; a symbolic link to
-#                      x64-ARM64 would save it, but every later step
-#                      (--compare, the zip and the DMG, codesign) would
-#                      have to handle a linked folder.
-#   x86-32             only looked at, but it must exist: it enables the
-#                      Intel target, and every Mac standalone gets its icons
-#                      from it (Contents/Resources/Standalone*.icns). It
-#                      has no Externals, because its target cannot build:
-#                      the engine has no i386 slice, and the IDE disables
-#                      the target on macOS 12 and later.
+# The macOS runtime folder, as LiveCode's standalone builder uses it
+# (revsblibrary revEngineCheck and revSBEnginePath, revsaveasstandalone):
+# only "Mac OS X/x86-64", for every macOS target, with Standalone.app (its
+# icons too: revsaveasstandalone takes them from its Contents/Resources).
+# In the universal layout its engine holds both architectures, so the
+# standalones it builds are universal.
 MAC_RUNTIMES = collections.OrderedDict([
     ('x86-64', dict(folder='Runtime/Mac OS X/x86-64',
                     standalone=('Standalone-Community.app', 'Standalone.app'),
                     files=(), support=('revpdfprinter.bundle', 'revsecurity.dylib'), externals=True)),
-    ('x64-ARM64', dict(folder='Runtime/Mac OS X/x64-ARM64',
-                       standalone=('Standalone-Community.app', 'Standalone-blank.app'),
-                       files=(), support=('revpdfprinter.bundle', 'revsecurity.dylib'), externals=True)),
-    ('arm64', dict(folder='Runtime/Mac OS X/arm64', standalone=None,
-                   files=(), support=(), externals=True)),
-    ('x86-32', dict(folder='Runtime/Mac OS X/x86-32',
-                    standalone=('Standalone-Community.app', 'Standalone.app'),
-                    files=(), support=(), externals=False)),
 ])
 
 
 def _mac(arch):
-    """package.txt TargetPlatform MacOSX, with the IDE under
-    OpenXTalk-Lite.app/Contents/Tools. arch 'universal' is the release layout;
-    'arm64' and 'x86_64' stage one architecture's build, with only its own
-    runtime folders (arm64: x64-ARM64 and its arm64 Externals; see
-    MAC_RUNTIMES) and x86-32, whose Standalone.app the IDE needs for the
-    icons; with a single-architecture layout the Intel target is offered
-    but fails without x86-64/Standalone.app."""
-    app = PRODUCT + '.app'
-    folders = {'universal': ('x86-64', 'x64-ARM64', 'arm64', 'x86-32'),
-               'arm64': ('x64-ARM64', 'arm64', 'x86-32'),
-               'x86_64': ('x86-64', 'x86-32')}[arch]
+    """package.txt TargetPlatform MacOSX: the app [[ProductTitle]].app (as
+    LiveCode's installer named the folder it installed), with the IDE under
+    Contents/Tools. arch 'universal' is the release layout; 'arm64' and
+    'x86_64' stage one architecture's build."""
+    app = LIVECODE_TITLE + '.app'
     return Platform(
         'mac-' + arch, 'mac', arch,
         bin_default='_build/mac/Release',
         dev_engine='LiveCode-Community.app',
         engine=app,
-        engine_executable=app + '/Contents/MacOS/' + PRODUCT,
+        # component Engine.MacOSX copies the app as it is built: the
+        # executable keeps its name
+        engine_executable=app + '/Contents/MacOS/LiveCode-Community',
         engine_dir=app + '/Contents/MacOS/',
         # environment/stackbehavior.livecodescript: the tools path of an
         # engine in X.app/Contents/MacOS is X.app/Contents/Tools
@@ -760,38 +614,31 @@ def _mac(arch):
         # externals and drivers, lc-compile/lc-run and both engines, and
         # staging does not fix it. The assembled app must be signed again
         # from the inside out, then checked with
-        # "codesign --verify --deep --strict":
-        #   1. every Mach-O under Contents/Tools: the Runtime/Mac OS X/*/
-        #      Standalone*.app bundles and their Support and Externals
-        #      folders, Externals, Toolchain;
-        #   2. Contents/MacOS/revsecurity.dylib and revpdfprinter.bundle;
-        #   3. the app itself, which signs Contents/MacOS/OpenXTalk-Lite.
+        # "codesign --verify --deep --strict" (tools/ci/sign_mac_app.py).
         # Apple Silicon kills a process at the first page that does not
-        # match its hash (loading revsecurity for an https URL would end in
-        # "Code Signature Invalid"). GitHub's macOS runners (SIP disabled)
-        # still run such files, so only the verify step catches it.
+        # match its hash.
         engine_support=(('revsecurity.dylib', app + '/Contents/MacOS/revsecurity.dylib'),
                         ('revpdfprinter.bundle', app + '/Contents/MacOS/revpdfprinter.bundle')),
         # component Mobile.MacOSX (its Resources/Mobile Examples come from ide/)
         mobile=('reviphone.bundle', 'revandroid.bundle'),
         toolchain=('lc-compile', 'lc-run', 'lc-compile-ffi-java'),
         cef=None,
-        runtimes=tuple(MAC_RUNTIMES[f] for f in folders),
+        runtimes=tuple(MAC_RUNTIMES.values()),
         not_installed=(
             ('*.dSYM/**', 'debug symbols; they go into the -symbols zip'),
-            ('Installer.app/**', 'LiveCode\'s installer; OpenXTalk-Lite ships the app in a disk image'),
+            ('Installer.app/**', 'LiveCode\'s installer; LegacyOXT ships the app in a disk image'),
             ('installer-stub', 'LiveCode\'s installer'),
             ('server-*', 'LiveCode Server engine and its externals; package.txt installs no server'),
             ('reviphoneproxy', 'iOS simulator helper; the copy inside reviphone.bundle is installed'),
             ('tz.dylib', 'native code of the timezone library; its packaged_extensions copy is installed'),
             ('inih.dylib', 'native code of com.livecode.library.ini, which package.txt does not install'),
             ('LiveCode-Community.app/Contents/Info.plist',
-             'replaced by OpenXTalk-Lite\'s Info.plist (mac_info_plist: bundle id, version, icon, document types, '
-             'the renamed executable, the layout\'s architectures and the engine\'s lowest macOS)'),
+             'replaced by the same plist with the universal app\'s architectures and lowest macOS '
+             '(mac_info_plist)'),
             ('LiveCode-Community.app/Contents/_CodeSignature/**',
-             'the build\'s seal of the app does not match the renamed executable and the new Info.plist; '
-             'the whole app, its nested code included (whose stripped copies carry stale signatures), '
-             'is signed again from the inside out after it is assembled'),
+             'the build\'s seal of the app does not match the new Info.plist; the whole app, its nested '
+             'code included (whose stripped copies carry stale signatures), is signed again from the '
+             'inside out after it is assembled'),
             ('LiveCode-Community.app/Contents/MacOS/revsecurity.dylib',
              'unstripped copy; package.txt Engine.MacOSX takes the build root\'s'),
             ('LiveCode-Community.app/Contents/MacOS/revpdfprinter.bundle/**',
@@ -819,15 +666,13 @@ _COMMERCIAL_LCI = ('com.livecode.library.native.android.barcode',
                    'com.livecode.widget.signature')
 INTENDED_MISSING = tuple(
     [('Toolchain/modules/lci/%s.lci' % m,
-      'interface of a LiveCode commercial-edition module; OpenXTalk Lite 1.15 ships '
-      'the stock LiveCode 9.6.3 Toolchain, which has it, but the module is not in this '
-      'repository and nothing in the IDE uses it') for m in _COMMERCIAL_LCI] +
+      'interface of a LiveCode commercial-edition module: LiveCode\'s builds of its '
+      'Community installers had the commercial modules, but they are not in this '
+      'repository and nothing in the Community IDE uses them') for m in _COMMERCIAL_LCI] +
     [('Toolchain/modules/lci/com.livecode.commercial.license.lci',
-      'from the stock LiveCode 9.6.3 Toolchain; this repository compiles '
+      'from LiveCode\'s commercial build; this repository compiles '
       'engine/src/license.lcb into lc-compile instead (engine_syntax_only_lcb_files) '
-      'and writes no .lci for it'),
-     ('Ext/**', "macOS and Linux only: Tom Perry's Ext folder (Installer/openxtalk-lite/from-tom-release) "
-      "goes into the Windows package; his macOS builds in it are i386 and x86_64 only")])
+      'and writes no .lci for it')])
 
 
 class PackageError(Exception):
@@ -841,7 +686,7 @@ class Item(object):
     def __init__(self, target, origin, source=None, data=None, member=None, asset=None, note='', link=None,
                  executable=False):
         self.target = target      # installed path, "/" separators
-        self.origin = origin      # ide, build, generated, licence, asset, xtalk, desktop, tom
+        self.origin = origin      # ide, build, generated, licence, asset, xtalk, desktop, ext
         self.source = source      # file on disk (ide, build, licence, xtalk)
         self.data = data          # bytes (generated, licence, desktop, the xtalk stamp)
         self.member = member      # zip member name (asset)
@@ -855,27 +700,15 @@ class Item(object):
 # Plan
 
 def read_version(repo):
-    path = os.path.join(repo, 'ide', '.version')
-    try:
-        with open(path, encoding='utf-8') as f:
-            version = f.read().strip()
-    except OSError:
-        raise PackageError('%s is missing' % path)
+    """The package's version: LiveCode's BUILD_SHORT_VERSION (the file
+    version), such as 9.7.0-dp-1."""
+    path = os.path.join(repo, 'version')
+    version = engine_version(repo)
+    if not version:
+        raise PackageError('%s has no BUILD_SHORT_VERSION' % path)
     if not re.match(r'^[0-9A-Za-z][0-9A-Za-z.+_-]*$', version):
         raise PackageError('%s holds %r, which is not usable as a version' % (path, version))
     return version
-
-
-def engine_version(repo):
-    try:
-        with open(os.path.join(repo, 'version'), encoding='utf-8') as f:
-            for line in f:
-                m = re.match(r'^\s*BUILD_SHORT_VERSION\s*=\s*(\S+)\s*$', line)
-                if m:
-                    return m.group(1)
-    except OSError:
-        pass
-    return ''
 
 
 def default_build_number(explicit=None):
@@ -1030,20 +863,20 @@ def externals_component(pl, prefix, runtime):
 
 
 def plan_engine(pl):
-    """The development engine under its new name, and its support files."""
+    """The development engine under its installed name, and its support
+    files."""
     p = pl.p
     note = 'Engine.' + p.component
     if p.family != 'mac':
-        pl.file(p.engine, p.dev_engine, note + ' (renamed)')
+        pl.file(p.engine, p.dev_engine, note + ' (as %s)' % p.engine)
     else:
-        # The app bundle, with Contents/MacOS/LiveCode-Community renamed
-        # and an Info.plist that says so. The engine finds its tools from
-        # its own path, never from its name.
-        old = 'Contents/MacOS/' + p.dev_engine[:-len('.app')]
-        new = p.engine_executable[len(p.engine) + 1:]
+        # The app bundle as it is built, in a folder of package.txt's name,
+        # with an Info.plist for the universal app. The engine finds its
+        # tools from its own path, never from its name.
+        exe = p.engine_executable[len(p.engine) + 1:]
         replaced = [t[len(p.engine) + 1:] for _, t in p.engine_support]
         skip = ['Contents/Info.plist', 'Contents/_CodeSignature/**'] + replaced + [r + '/**' for r in replaced]
-        pl.tree(p.engine, p.dev_engine, note + ' (renamed)', skip=skip, rename={old: new})
+        pl.tree(p.engine, p.dev_engine, note + ' (as %s)' % p.engine, skip=skip)
         plist_path = layout.native(pl.bin_dir, p.dev_engine + '/Contents/Info.plist')
         try:
             with open(plist_path, 'rb') as f:
@@ -1051,57 +884,31 @@ def plan_engine(pl):
         except (OSError, ValueError, plistlib.InvalidFileException) as e:
             pl.problems.append('cannot read %s: %s' % (plist_path, e))
         else:
-            if plist.get('CFBundleExecutable') != p.dev_engine[:-len('.app')]:
+            if plist.get('CFBundleExecutable') != exe.rsplit('/', 1)[-1]:
                 pl.problems.append('%s: CFBundleExecutable is %r, not %r'
-                                   % (plist_path, plist.get('CFBundleExecutable'), p.dev_engine[:-len('.app')]))
+                                   % (plist_path, plist.get('CFBundleExecutable'), exe.rsplit('/', 1)[-1]))
             # LSMinimumSystemVersion: the lowest minimum macOS of the
             # engine's slices (see mac_info_plist). binfmt's floors are the
             # highest over the slices, so read each slice on its own.
-            exe = layout.native(pl.bin_dir, p.dev_engine + '/' + old)
+            exe_path = layout.native(pl.bin_dir, p.dev_engine + '/' + exe)
             try:
-                data = binfmt.read_file(exe)
+                data = binfmt.read_file(exe_path)
                 floors = [binfmt.parse_macho(data[o:o + n]).floors.get('macOS')
                           for _, o, n in binfmt.macho_slices(data)]
             except (OSError, struct.error, binfmt.FormatError) as e:
                 floors = [None]
-                pl.problems.append('cannot read the macOS floor of %s: %s' % (exe, e))
+                pl.problems.append('cannot read the macOS floor of %s: %s' % (exe_path, e))
             else:
                 if None in floors:
                     pl.problems.append('%s: a slice has no minimum macOS version (LC_BUILD_VERSION or '
-                                       'LC_VERSION_MIN_MACOSX)' % exe)
-            plist = mac_info_plist(plist, read_version(pl.repo), pl.build_number, p.mac_archs,
-                                   new.rsplit('/', 1)[-1],
+                                       'LC_VERSION_MIN_MACOSX)' % exe_path)
+            plist = mac_info_plist(plist, p.mac_archs,
                                    binfmt.version_text(min(floors)) if None not in floors else None)
             pl.generated(p.engine + '/Contents/Info.plist', plistlib.dumps(plist, fmt=plistlib.FMT_XML),
-                         'OpenXTalk-Lite\'s Info.plist (mac_info_plist): %s %s, CFBundleExecutable %s, '
-                         'LSArchitecturePriority %s, LSMinimumSystemVersion %s'
-                         % (plist['CFBundleIdentifier'], plist['CFBundleVersion'], plist['CFBundleExecutable'],
+                         'the build\'s Info.plist (mac_info_plist): %s %s, LSArchitecturePriority %s, '
+                         'LSMinimumSystemVersion %s'
+                         % (plist.get('CFBundleIdentifier'), plist.get('CFBundleShortVersionString'),
                             ', '.join(plist['LSArchitecturePriority']), plist.get('LSMinimumSystemVersion', '?')))
-        # The app icon: Tom Perry's .icns, byte for byte
-        icon = layout.native(pl.repo, MAC_ICON_FILE)
-        try:
-            with open(icon, 'rb') as f:
-                data = f.read()
-        except OSError as e:
-            pl.problems.append('cannot read %s: %s' % (MAC_ICON_FILE, e))
-        else:
-            if data[:4] != b'icns':
-                pl.problems.append('%s is not an .icns file' % MAC_ICON_FILE)
-            else:
-                pl.generated(p.engine + '/Contents/Resources/' + MAC_ICON, data,
-                             'the app icon (CFBundleIconFile), %s' % MAC_ICON_FILE)
-        # The document icon that Tom Perry's Info.plist names for his
-        # "OpenXTalk Stack" document type (CFBundleTypeIconFile), which the
-        # build does not copy into the app: his engine/rsrc/OpenXTalkDoc.icns
-        doc_icon = 'engine/rsrc/OpenXTalkDoc.icns'
-        try:
-            with open(layout.native(pl.repo, doc_icon), 'rb') as f:
-                data = f.read()
-        except OSError as e:
-            pl.problems.append('cannot read %s: %s' % (doc_icon, e))
-        else:
-            pl.generated(p.engine + '/Contents/Resources/OpenXTalkDoc.icns', data,
-                         'the document icon of his OpenXTalk Stack type, %s' % doc_icon)
     for rel, target in p.engine_support:
         pl.output(target, rel, note)
 
@@ -1239,19 +1046,21 @@ def plan(repo, bin_dir, build_number, assets, xtalk=None, platform=None, notes=N
     for target, repo_path in pairs:
         pl.add(Item(tools + target, 'ide', source=layout.native(repo, repo_path), note=repo_path))
 
-    # Tom Perry's Ext folder (the mergExt collection: blur, mergJSON,
-    # mergMarkdown, mergMicrophone), which his Windows release ships and his
-    # IDE loads at startup, byte for byte from his release
-    # (TOM_RELEASE_DIR). Windows only: his macOS builds in it are i386 and
-    # x86_64 only, and the Linux ones were never tested with this IDE.
-    if p.family == 'windows':
-        ext_root = layout.native(repo, TOM_RELEASE_DIR + '/Ext')
-        for dirpath, dirnames, filenames in os.walk(ext_root):
-            dirnames.sort()
-            for name in sorted(filenames):
-                rel = os.path.relpath(os.path.join(dirpath, name), ext_root).replace(os.sep, '/')
-                pl.add(Item(tools + 'Ext/' + rel, 'tom', source=os.path.join(dirpath, name),
-                            note=TOM_RELEASE_DIR + '/Ext/' + rel))
+    # package.txt component Ext: the mergExt bundle (blur, mergJSON,
+    # mergMarkdown, mergMicrophone), which the IDE loads at startup, byte
+    # for byte as LiveCode's installers have it (EXT_DIR), on every
+    # platform. Each folder holds the builds for every platform; the IDE
+    # loads the ones this engine can (its macOS builds are i386 and x86_64,
+    # so Apple Silicon loads none of them, as with LiveCode 9.6.3 there).
+    ext_root = layout.native(repo, EXT_DIR)
+    if not os.path.isdir(ext_root):
+        pl.problems.append('the Ext folder is missing: %s' % ext_root)
+    for dirpath, dirnames, filenames in os.walk(ext_root):
+        dirnames.sort()
+        for name in sorted(filenames):
+            rel = os.path.relpath(os.path.join(dirpath, name), ext_root).replace(os.sep, '/')
+            pl.add(Item(tools + 'Ext/' + rel, 'ext', source=os.path.join(dirpath, name),
+                        note=EXT_DIR + '/' + rel))
 
     # Build outputs
     plan_build(pl)
@@ -1259,7 +1068,7 @@ def plan(repo, bin_dir, build_number, assets, xtalk=None, platform=None, notes=N
         plan_linux_desktop(pl, repo)
 
     # Licence files
-    for name in LICENCE_FILES:
+    for name in STAGE_LICENCE_FILES:
         path = os.path.join(repo, name)
         if not os.path.isfile(path):
             pl.problems.append('licence file missing: %s' % path)
@@ -1395,8 +1204,11 @@ def write_stage(stage, items, folders, eol, log, platform=None):
                         f.write(data)
                 else:
                     shutil.copyfile(it.source, dst)
-            elif it.origin == 'tom':
-                shutil.copyfile(it.source, dst)    # byte for byte, as in his release
+            elif it.origin == 'ext':
+                shutil.copyfile(it.source, dst)    # byte for byte, as LiveCode's installers have it
+                # its native code: Linux .so files, macOS .dylib files and
+                # the executables of its .bundle folders
+                executable = it.target.endswith(('.so', '.dylib')) or '.bundle/Contents/MacOS/' in it.target
             elif it.origin == 'build':
                 if it.link is not None:
                     os.symlink(it.link, dst)
@@ -1691,15 +1503,15 @@ def compare(stage, items, ref, no_assets, report=None, no_xtalk=False, platform=
             counts[('(staged only)', 'class not in the list')] += 1
             continue
         if it.origin == 'licence':
-            status, why = 'intended addition', 'OpenXTalk-Lite licence file'
+            status, why = 'intended addition', 'licence file'
         elif it.origin == 'asset' and _asset_rel(it) in it.asset.get('rename', {}):
             status, why = 'intended addition', 'notice file of an external asset (%s)' % it.note
         elif it.origin == 'asset' and rebuilt and it.target.startswith(REBUILT_RUNTIMES + ('PROVENANCE-',)):
             status, why = 'intended addition', 'a file of the runtimes built from this repository (%s)' % it.note
         elif it.origin == 'ide':
             status, why = 'IDE change: added', it.note
-        elif it.origin == 'tom':
-            status, why = 'intended addition', "Tom Perry's release (%s)" % it.note
+        elif it.origin == 'ext':
+            status, why = 'intended addition', 'package.txt Ext (%s)' % it.note
         elif it.origin == 'xtalk':
             status, why = 'intended addition', 'xTalk Suite extension (%s)' % it.note
         else:
@@ -1865,7 +1677,7 @@ def summarise_xtalk(xtalk, log):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(description='Stage the installed layout of OpenXTalk-Lite for one platform.')
+    p = argparse.ArgumentParser(description='Stage the installed layout of LiveCode Community for one platform, in a LegacyOXT package folder.')
     p.add_argument('--platform', choices=list(PLATFORMS), default=DEFAULT_PLATFORM,
                    help='layout to stage (default: %(default)s)')
     p.add_argument('--repo', default=os.path.dirname(os.path.dirname(HERE)),
@@ -1873,8 +1685,8 @@ def main(argv=None):
     p.add_argument('--bin', dest='bin_dir',
                    help='build output (default: the platform\'s, e.g. <repo>/win-x86_64-bin)')
     p.add_argument('--bin-tar', metavar='FILE',
-                   help='build output as a CI tarball (OpenXTalk-Lite-<platform>-bin.tar.xz), instead of --bin')
-    p.add_argument('--out', required=True, help='folder to create OpenXTalk-Lite-<version> in')
+                   help='build output as a CI tarball (LegacyOXT-<platform>-bin.tar.xz), instead of --bin')
+    p.add_argument('--out', required=True, help='folder to create LegacyOXT-<version> in')
     p.add_argument('--build-number', help='default: $%s, else the UTC time as YYYYMMDDHHMM' % BUILD_NUMBER_ENV)
     p.add_argument('--assets-cache', metavar='DIR',
                    help='asset cache (default: $%s, else <repo>/prebuilt/fetched-assets)' % fetch_assets.CACHE_ENV)
@@ -2008,6 +1820,9 @@ def main(argv=None):
         xtalk = None
         if args.no_xtalk_extensions:
             log('xTalk extensions: left out (--no-xtalk-extensions)')
+        elif not os.path.isfile(args.xtalk_manifest):
+            # LiveCode's packages have none: this repository has no manifest
+            log('xTalk extensions: none (no %s)' % args.xtalk_manifest)
         else:
             # Built into a temporary folder with this build's lc-compile,
             # then staged byte for byte like build outputs

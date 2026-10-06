@@ -1,36 +1,36 @@
-# Builds OpenXTalk Lite 1.15 (Tom Perry's source, his Windows and macOS
-# working copies merged at the tag tom-perry-1.15-merged, with the build
-# changes after it; CHANGES-FROM-TOM.md lists them) for macOS on GitHub-hosted runners: Apple
-# Silicon (arm64) on macos-15 and Intel (x86_64) on macos-15-intel, each
-# natively, as an artifact of its own ("Build mac-<arch>"). Adapted from
-# OXT-Beyond's workflow of the same name; see README.md. The engine is Tom
-# Perry's macOS engine work (his Apple Silicon working copy, which holds his
-# Intel work, merged with his Windows one), built with gyp and the
-# installed Xcode instead of his hand-edited Xcode projects, for one
-# universal app. Then
+# Builds LiveCode Community 9.7.0-dp-1 (LiveCode's source at the tag
+# livecode-9.7.0-dp-1, with the build changes after it;
+# CHANGES-FROM-LIVECODE.md lists them) for macOS on GitHub-hosted runners:
+# Apple Silicon (arm64) on macos-15 and Intel (x86_64) on macos-15-intel,
+# each natively, as an artifact of its own ("Build mac-<arch>"), built with
+# gyp and the installed Xcode, for one universal app (LiveCode built macOS
+# for Intel only). Adapted from OpenXTalk-Lite-1.15's workflow of the same
+# name. Then
 #
 #   "Package mac-universal" (macos-15) joins the two builds into one
 #   universal build output with lipo (tools/ci/merge_universal.py, dSYM
-#   bundles included), stages OpenXTalk-Lite.app from it with the external
-#   asset oxt-runtimes-1.15 (tools/oxt/package.py --platform mac-universal),
-#   signs it ad hoc from the inside out (tools/ci/sign_mac_app.py), checks
-#   that every Mach-O file of macOS code in it holds arm64 and x86_64, and
-#   writes
+#   bundles included), stages the app from it as LiveCode's installer
+#   installed it ("LiveCode Community <version>.app", its Info.plist with
+#   only the universal app's architectures and lowest macOS added;
+#   tools/oxt/package.py --platform mac-universal), signs it ad hoc from the
+#   inside out (tools/ci/sign_mac_app.py), checks that every Mach-O file of
+#   macOS code in it holds arm64 and x86_64 (except the mergExt bundle of
+#   Ext, LiveCode's Intel builds), and writes
 #
-#     OpenXTalk-Lite-<ver>-mac-universal.dmg              the app and a link
-#                                                         to /Applications
-#     OpenXTalk-Lite-<ver>-mac-universal.zip              the app (ditto)
-#     OpenXTalk-Lite-<ver>-mac-universal-binaries.tar.xz  the merged build
-#                                                         output, signed ad
-#                                                         hoc, without the
-#                                                         build's own tools
-#                                                         (GENTLE's among
-#                                                         them)
-#     OpenXTalk-Lite-<ver>-mac-universal-symbols.zip      the universal dSYMs
+#     LegacyOXT-<ver>-mac-universal.dmg              the app and a link
+#                                                    to /Applications
+#     LegacyOXT-<ver>-mac-universal.zip              the app (ditto)
+#     LegacyOXT-<ver>-mac-universal-binaries.tar.xz  the merged build
+#                                                    output, signed ad
+#                                                    hoc, without the
+#                                                    build's own tools
+#                                                    (GENTLE's among
+#                                                    them)
+#     LegacyOXT-<ver>-mac-universal-symbols.zip      the universal dSYMs
 #     SHA256SUMS
 #
 #   (tools/oxt/package_dist.py --dmg) as the artifact
-#   OpenXTalk-Lite-mac-universal;
+#   LegacyOXT-mac-universal;
 #
 #   "Test mac-universal (<arch>)" (macos-15 and macos-15-intel, so that
 #   each slice runs) installs the app from the disk image into a neutral
@@ -40,7 +40,7 @@
 #
 # Each build job also runs the IDE compile check on the checkout's IDE and
 # the engine test suites of tests/. A failure that is not in the baselines
-# (tools/ci/*-baseline*.txt, which record how Tom Perry's code behaves)
+# (tools/ci/*-baseline*.txt, which record how LiveCode's code behaves)
 # fails the job. Every check after the build, the install or the packaging
 # runs even when an earlier check failed, so that a run reports all of
 # them.
@@ -380,7 +380,7 @@ jobs:
         run: |
           python3 tools/ci/list_build_tools.py _build/mac/Release > "$RUNNER_TEMP/build-tools.list"
           echo "Left out (the build's own tools): $(tr '\n' ' ' < "$RUNNER_TEMP/build-tools.list")"
-          tar -C _build/mac -cJf "OpenXTalk-Lite-mac-$ARCH-bin.tar.xz" \
+          tar -C _build/mac -cJf "LegacyOXT-mac-$ARCH-bin.tar.xz" \
             --exclude '*.a' --exclude '*.dSYM' --exclude '*.hmap' -X "$RUNNER_TEMP/build-tools.list" Release
           # (grep -v exits 1 when it selects nothing; the check below reports that)
           (cd _build/mac && find Release -type d -name '*.dSYM' -prune | sort) \
@@ -389,9 +389,9 @@ jobs:
             echo "::error::no .dSYM bundles in _build/mac/Release"; exit 1
           fi
           echo "$(wc -l < "$RUNNER_TEMP/dsym.list" | tr -d ' ') dSYM bundles"
-          (cd _build/mac && tar -cJf "$GITHUB_WORKSPACE/OpenXTalk-Lite-mac-$ARCH-symbols.tar.xz" -T "$RUNNER_TEMP/dsym.list")
-          ls -l OpenXTalk-Lite-mac-"$ARCH"-*.tar.xz
-          for t in OpenXTalk-Lite-mac-"$ARCH"-bin.tar.xz OpenXTalk-Lite-mac-"$ARCH"-symbols.tar.xz; do
+          (cd _build/mac && tar -cJf "$GITHUB_WORKSPACE/LegacyOXT-mac-$ARCH-symbols.tar.xz" -T "$RUNNER_TEMP/dsym.list")
+          ls -l LegacyOXT-mac-"$ARCH"-*.tar.xz
+          for t in LegacyOXT-mac-"$ARCH"-bin.tar.xz LegacyOXT-mac-"$ARCH"-symbols.tar.xz; do
             tar -tJf "$t" > "$RUNNER_TEMP/members.txt"
             if grep -E '(^|/)(gentle|reflex)-' "$RUNNER_TEMP/members.txt"; then
               echo "::error::$t holds the GENTLE files above, which may not be redistributed"; exit 1
@@ -401,8 +401,8 @@ jobs:
       - name: Upload the build products
         uses: actions/upload-artifact@v7
         with:
-          name: OpenXTalk-Lite-mac-${{ matrix.arch }}-bin
-          path: OpenXTalk-Lite-mac-${{ matrix.arch }}-bin.tar.xz
+          name: LegacyOXT-mac-${{ matrix.arch }}-bin
+          path: LegacyOXT-mac-${{ matrix.arch }}-bin.tar.xz
           if-no-files-found: error
           retention-days: 30
           # The tarball is compressed already
@@ -411,8 +411,8 @@ jobs:
       - name: Upload the debug symbols
         uses: actions/upload-artifact@v7
         with:
-          name: OpenXTalk-Lite-mac-${{ matrix.arch }}-symbols
-          path: OpenXTalk-Lite-mac-${{ matrix.arch }}-symbols.tar.xz
+          name: LegacyOXT-mac-${{ matrix.arch }}-symbols
+          path: LegacyOXT-mac-${{ matrix.arch }}-symbols.tar.xz
           if-no-files-found: error
           retention-days: 30
           # The tarball is compressed already
@@ -467,8 +467,365 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # One universal OpenXTalk-Lite.app from the two builds, signed ad hoc, as a
+  # One universal app from the two builds, signed ad hoc, as a
   # disk image, a zip and the merged build output with its symbols. Every
   # path below is under $RUNNER_TEMP (/Users/runner/work/_temp): no folder
   # there is named _build or *-bin, which would put the engine into
   # repository mode (tools/oxt/package.py repository_mode_trap).
+  package:
+    name: Package mac-universal
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      OXT_ASSETS_CACHE: ${{ github.workspace }}/prebuilt/fetched-assets
+    outputs:
+      version: ${{ steps.product.outputs.version }}
+      app: ${{ steps.stage.outputs.app }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The build jobs have checked the tag against BUILD_SHORT_VERSION (the file version) already,
+      # and the input build-number. This job's build number
+      # (OXT_BUILD_NUMBER, the packaged .buildnumber and CFBundleVersion) is
+      # release.yml's input, else the UTC time now. MAC and LOGS are set
+      # here because a job's env cannot use the runner context.
+      - name: Read the product version
+        id: product
+        env:
+          BUILD_NUMBER_INPUT: ${{ inputs.build-number }}
+        run: |
+          version=$(sed -n 's/^BUILD_SHORT_VERSION = *//p' version | tr -d '\r')
+          version="${version#"${version%%[![:space:]]*}"}"
+          version="${version%"${version##*[![:space:]]}"}"
+          if [ -z "$version" ]; then echo "::error::version has no BUILD_SHORT_VERSION"; exit 1; fi
+          build_number=${BUILD_NUMBER_INPUT:-$(date -u +%Y%m%d%H%M)}
+          echo "LiveCode Community $version, build number $build_number"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          {
+            echo "VERSION=$version"
+            echo "OXT_BUILD_NUMBER=$build_number"
+            echo "MAC=$RUNNER_TEMP/mac"
+            echo "LOGS=$RUNNER_TEMP/logs"
+          } >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/logs"
+          python3 --version
+          echo "Machine: $(uname -m), macOS $(sw_vers -productVersion)"
+
+      - name: Download the arm64 build
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-arm64-bin
+          path: ${{ runner.temp }}/artifacts/arm64
+
+      - name: Download the arm64 symbols
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-arm64-symbols
+          path: ${{ runner.temp }}/artifacts/arm64
+
+      - name: Download the x86_64 build
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-x86_64-bin
+          path: ${{ runner.temp }}/artifacts/x86_64
+
+      - name: Download the x86_64 symbols
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-x86_64-symbols
+          path: ${{ runner.temp }}/artifacts/x86_64
+
+      # Both tarballs of a build unpack as Release/: the symbols go over the
+      # build products, which puts every dSYM next to its binary. The two
+      # architectures go into folders of their own.
+      - name: Extract the two builds
+        run: |
+          for arch in arm64 x86_64; do
+            mkdir -p "$MAC/$arch"
+            for kind in bin symbols; do
+              tarball="$RUNNER_TEMP/artifacts/$arch/LegacyOXT-mac-$arch-$kind.tar.xz"
+              if [ ! -f "$tarball" ]; then echo "::error::$tarball is missing from the artifact"; exit 1; fi
+              tar -C "$MAC/$arch" -xJf "$tarball"
+            done
+            if [ ! -d "$MAC/$arch/Release/LiveCode-Community.app" ]; then
+              echo "::error::the $arch build has no Release/LiveCode-Community.app"; exit 1
+            fi
+            echo "$arch: $(find "$MAC/$arch/Release" -type f | wc -l | tr -d ' ') files," \
+                 "$(find "$MAC/$arch/Release" -type d -name '*.dSYM' | wc -l | tr -d ' ') dSYM bundles"
+          done
+
+      # lipo -create for every Mach-O file (the dSYMs' DWARF files too),
+      # byte-for-byte comparison of everything else; see the rules in the
+      # script for what may differ or exist in one build only.
+      - name: Merge into one universal build output
+        run: |
+          python3 tools/ci/merge_universal.py --arm64 "$MAC/arm64/Release" --x86_64 "$MAC/x86_64/Release" \
+            --out "$MAC/universal/Release" --report "$LOGS/merge-report.tsv"
+
+      # The stripped Mach-O files carry stale signatures and every merged
+      # file keeps each slice's old one, so the merged tree is signed ad hoc
+      # before it is staged and archived: the binaries archive then holds
+      # code that runs on Apple Silicon (which kills a process whose pages
+      # do not match their hashes). The app is signed again after staging.
+      - name: Sign the merged build output
+        run: python3 tools/ci/sign_mac_app.py "$MAC/universal/Release"
+
+      # The same cache as build-windows.yml (see there). actions/cache keeps
+      # Windows entries apart from macOS and Linux ones, so this key does
+      # not restore the Windows job's files here.
+      - name: Restore cached external assets
+        id: assets-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: prebuilt/fetched-assets/*.zip
+          key: oxt-external-assets-${{ hashFiles('tools/oxt/external-assets.json') }}
+
+      # The external assets can be left out with the repository variable
+      # OXT_NO_EXTERNAL_ASSETS (1), as in build-windows.yml, except in
+      # release builds (a tag, or the input release of release.yml, also in
+      # its dry runs). LiveCode's packages have no xTalk Suite extensions.
+      # The app's name is package.py's (its summary's "exe"): LiveCode's
+      # ProductTitle, such as "LiveCode Community 9.7 (dp 1).app".
+      - name: Stage the app
+        id: stage
+        env:
+          NO_EXTERNAL_ASSETS: ${{ github.ref_type != 'tag' && !inputs.release && vars.OXT_NO_EXTERNAL_ASSETS == '1' }}
+        run: |
+          flags=--no-xtalk-extensions
+          if [ "$NO_EXTERNAL_ASSETS" = true ]; then
+            echo "::warning title=Package::External assets left out (OXT_NO_EXTERNAL_ASSETS): the package has no standalone runtimes for other platforms."
+            flags="$flags --no-external-assets"
+          fi
+          python3 tools/oxt/package.py --platform mac-universal --bin "$MAC/universal/Release" \
+            --out "$RUNNER_TEMP/stage" --summary-json "$RUNNER_TEMP/package-summary.json" $flags \
+            2>&1 | tee "$LOGS/package.log"
+          name=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["exe"])' "$RUNNER_TEMP/package-summary.json")
+          app="$RUNNER_TEMP/stage/LegacyOXT-$VERSION/$name"
+          if [ ! -d "$app" ]; then echo "::error::package.py wrote no $app"; exit 1; fi
+          echo "APP=$app" >> "$GITHUB_ENV"
+          echo "app=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Save external assets to the cache
+        if: always() && steps.assets-cache.outputs.cache-hit != 'true' && hashFiles('prebuilt/fetched-assets/*.zip') != ''
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: prebuilt/fetched-assets/*.zip
+          key: ${{ steps.assets-cache.outputs.cache-primary-key }}
+
+      # The build's Info.plist, LiveCode's (its bundle id, executable, name
+      # and icon), with what package.py adds for the universal app: arm64
+      # first, and the Intel floor of the universal engine.
+      # PlistBuddy exits 1 for a missing key; "|| true" keeps bash -e from
+      # ending the step at the assignment, so that the comparison reports
+      # the key and PlistBuddy's message ('Print: Entry, ... Does Not Exist').
+      - name: Check the Info.plist
+        run: |
+          plist="$APP/Contents/Info.plist"
+          plutil -lint "$plist"
+          check() {
+            got=$(/usr/libexec/PlistBuddy -c "Print :$1" "$plist" 2>&1) || true
+            if [ "$got" != "$2" ]; then echo "::error::Info.plist $1 is '$got', expected '$2'"; exit 1; fi
+            echo "$1 = $got"
+          }
+          check CFBundleIdentifier com.runrev.livecode
+          check CFBundleExecutable LiveCode-Community
+          check CFBundleName LiveCode
+          check CFBundleIconFile LiveCode.icns
+          check LSMinimumSystemVersion 10.13
+          check LSArchitecturePriority:0 arm64
+          check LSArchitecturePriority:1 x86_64
+          echo "CFBundleShortVersionString = $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")"
+          test -f "$APP/Contents/Resources/LiveCode.icns"
+
+      - name: Sign the app
+        run: python3 tools/ci/sign_mac_app.py "$APP"
+
+      # Every Mach-O file of macOS code in the app holds arm64 and x86_64
+      # (lipo -archs agreeing with tools/oxt/binfmt.py), except
+      # reviphoneproxy, the x86_64-only iOS simulator helper, and Ext (LiveCode's
+      # mergExt bundle, its Intel builds); the time zone library's iOS files are
+      # listed, not checked.
+      - name: Check that the app is universal
+        run: python3 tools/ci/merge_universal.py --check "$APP"
+
+      - name: Write the disk image and the archives
+        run: |
+          python3 tools/oxt/package_dist.py --summary "$RUNNER_TEMP/package-summary.json" \
+            --bin "$MAC/universal/Release" --out "$RUNNER_TEMP/dist" --dmg 2>&1 | tee "$LOGS/package-dist.log"
+          ls -l "$RUNNER_TEMP/dist"
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: LegacyOXT-mac-universal
+          path: ${{ runner.temp }}/dist/*
+          if-no-files-found: error
+          retention-days: 30
+          # The files are compressed already
+          compression-level: 0
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-logs-mac-universal
+          path: ${{ runner.temp }}/logs
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The packaged app on each architecture, installed as a user installs it:
+  # from the disk image into a folder of its own ($RUNNER_TEMP/oxt-test,
+  # never under a *-bin or _build folder, which would switch the IDE into
+  # repository mode).
+  test:
+    name: Test mac-universal (${{ matrix.arch }})
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      ARCH: ${{ matrix.arch }}
+      VERSION: ${{ needs.package.outputs.version }}
+      APP_NAME: ${{ needs.package.outputs.app }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: LegacyOXT-mac-universal
+          path: ${{ runner.temp }}/dist
+
+      - name: Check the download
+        run: |
+          echo "LOGS=$RUNNER_TEMP/logs" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/logs"
+          if [ -z "$VERSION" ]; then echo "::error::the package job gave no version"; exit 1; fi
+          echo "Machine: $(uname -m), macOS $(sw_vers -productVersion); python3 $(python3 -c 'import platform; print(platform.python_version())')"
+          if [ "$(uname -m)" != "$ARCH" ]; then echo "::error::this runner is $(uname -m), not $ARCH"; exit 1; fi
+          cd "$RUNNER_TEMP/dist"
+          ls -l
+          shasum -a 256 -c SHA256SUMS
+
+      # hdiutil attach -readonly, as a user's double-click mounts it; the
+      # volume must hold the app and the link to drag it onto. The attach
+      # runs right after a large download, while XProtect or Spotlight may
+      # still scan the new image, and hdiutil then fails now and again
+      # ("Resource busy", "Resource temporarily unavailable"), as hdiutil
+      # create does in the package job: up to four tries, as there. (In an
+      # "if", a failed attach does not end the step under bash -e.)
+      - name: Install from the disk image
+        id: install
+        run: |
+          dmg="$RUNNER_TEMP/dist/LegacyOXT-$VERSION-mac-universal.dmg"
+          mnt="$RUNNER_TEMP/oxt-dmg"
+          mkdir -p "$mnt" "$RUNNER_TEMP/oxt-test"
+          for i in 1 2 3 4; do
+            if hdiutil attach -nobrowse -readonly -noautoopen -mountpoint "$mnt" "$dmg"; then break; fi
+            if [ "$i" = 4 ]; then echo "::error::hdiutil attach $dmg failed 4 times (see above)"; exit 1; fi
+            echo "hdiutil attach failed (attempt $i of 4); trying again in $((10*i)) s"
+            sleep $((10*i))
+          done
+          ls -la "$mnt"
+          if [ ! -d "$mnt/$APP_NAME" ]; then echo "::error::the disk image has no $APP_NAME"; exit 1; fi
+          if [ "$(readlink "$mnt/Applications")" != /Applications ]; then
+            echo "::error::the disk image has no link to /Applications"; exit 1
+          fi
+          ditto "$mnt/$APP_NAME" "$RUNNER_TEMP/oxt-test/$APP_NAME"
+          hdiutil detach "$mnt" || hdiutil detach -force "$mnt"
+          echo "APP=$RUNNER_TEMP/oxt-test/$APP_NAME" >> "$GITHUB_ENV"
+
+      - name: Verify the signature
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --display --verbose=2 "$APP" 2>&1 | grep -E '^(Identifier|Format|Signature|CodeDirectory)' || true
+          python3 tools/ci/merge_universal.py --check "$APP"
+
+      # The headless smoke test of the installed app (the engine in
+      # Contents/MacOS, the IDE, externals and extensions in
+      # Contents/Tools): script engine, SQLite, revXML and revZip
+      - name: Smoke test
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        timeout-minutes: 15
+        run: |
+          python3 tools/ci/run_livecode_check.py smoke --install "$RUNNER_TEMP/oxt-test" --platform mac-universal \
+            --log "$LOGS/smoke-test.log"
+
+      # Every native library of the bundled extensions finds what it needs
+      # on a user's Mac and holds both architectures, and none needs a macOS
+      # newer than 15 (the floor printed per library).
+      - name: Check the extension libraries
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          python3 tools/ci/check_native_deps.py --root "$APP/Contents/Tools" --platform mac --max-macos 15.0
+
+      - name: IDE compile check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          python3 tools/ci/run_livecode_check.py compile --install "$RUNNER_TEMP/oxt-test" --platform mac-universal \
+            --log "$LOGS/ide-compile-check.log"
+
+      - name: Standalone check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        timeout-minutes: 15
+        run: |
+          python3 tools/ci/standalone_check.py --install "$RUNNER_TEMP/oxt-test" --platform mac-universal --targets all \
+            --log "$LOGS/standalone-check.log"
+
+      # The browser widget (WKWebView), revBrowser and the player
+      # (AVFoundation) in a standalone of the app: a page loads and its
+      # JavaScript calls back into the script, a WAV and an MP4 file play,
+      # pause and end (tools/ci/media_check.py)
+      - name: Browser and player check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        timeout-minutes: 10
+        run: |
+          python3 tools/ci/media_check.py --install "$RUNNER_TEMP/oxt-test" --platform mac-universal \
+            --log "$LOGS/media-check.log"
+
+      # The zip must give the same, still valid, app
+      - name: Check the zip
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          dest="$RUNNER_TEMP/oxt-zip"
+          mkdir -p "$dest"
+          ditto -x -k "$RUNNER_TEMP/dist/LegacyOXT-$VERSION-mac-universal.zip" "$dest"
+          codesign --verify --deep --strict "$dest/$APP_NAME"
+          diff -rq "$APP" "$dest/$APP_NAME"
+          echo "The zip holds the same app as the disk image."
+
+      # The IDE as a user starts it, with its home stack, menu bar and
+      # palettes, still running after 90 seconds; the other steps run the
+      # engine with -ui or a test stack of their own
+      # (tools/ci/mac_ide_start.sh, which prints the crash report if not)
+      - name: Start the IDE
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        timeout-minutes: 5
+        run: |
+          tools/ci/mac_ide_start.sh "$APP" "$LOGS/ide-start"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs-mac-universal-${{ matrix.arch }}
+          path: ${{ runner.temp }}/logs
+          if-no-files-found: ignore
+          retention-days: 14

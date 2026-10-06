@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Runs the headless smoke test (tools/ci/smoke-test.livecodescript) with a
-    built OpenXTalk-Lite development engine.
+    built LiveCode development engine.
 
 .DESCRIPTION
     Starts the development engine with -ui (no user interface) and the smoke
@@ -16,8 +16,8 @@
       development  the build output folder (win-x86_64-bin), where the
                    engine (LiveCode-Community.exe), the externals and the
                    database drivers are all in one folder;
-      installed    an installed or packaged OpenXTalk-Lite folder, with the
-                   engine (OpenXTalk-Lite.exe) and revsecurity.dll at the root,
+      installed    an installed or packaged LegacyOXT folder, with the
+                   engine (LiveCode Community.exe) and revsecurity.dll at the root,
                    the externals in Externals and the database drivers in
                    Externals\Database Drivers.
 
@@ -43,7 +43,7 @@
     With -Package, a zip is extracted to a temporary folder first and its
     engine is tested, so the check covers the files users download. The zip
     must have one top folder; its layout is detected: the portable zip made
-    by package-windows.ps1 (OpenXTalk-Lite-<ver>\OpenXTalk-Lite.exe) is tested as an
+    by package-windows.ps1 (LegacyOXT-<ver>\LiveCode Community.exe) is tested as an
     installed layout, and a zip with a win-x86_64-bin folder under its top
     folder as a development layout. With -InstallDir, an installed folder
     (for example one written by the installer) is tested. Otherwise the
@@ -62,14 +62,14 @@
     Default: <RepoRoot>\win-x86_64-bin. Ignored with -Package.
 
 .PARAMETER Package
-    Zip to extract and test: the OpenXTalk-Lite-<ver>-win-x86_64-portable.zip,
+    Zip to extract and test: the LegacyOXT-<ver>-win-x86_64-portable.zip,
     or a zip in the development layout.
 
 .PARAMETER InstallDir
-    Installed OpenXTalk-Lite folder to test (the folder with OpenXTalk-Lite.exe).
+    Installed LegacyOXT folder to test (the folder with LiveCode Community.exe).
 
 .PARAMETER Exe
-    File name of the engine. Default: OpenXTalk-Lite.exe in an installed layout,
+    File name of the engine. Default: LiveCode Community.exe in an installed layout,
     LiveCode-Community.exe in a development layout.
 
 .PARAMETER LogFile
@@ -106,7 +106,7 @@ $expectSqlite = [regex]::Match($sqliteLine, '"([^"]+)"').Groups[1].Value
 
 # --- Locate the engine, extracting the package if one was given ---
 $DevExe = 'LiveCode-Community.exe'
-$InstalledExe = 'OpenXTalk-Lite.exe'
+$InstalledExe = 'LiveCode Community.exe'
 if (@($BinDir, $Package, $InstallDir | Where-Object { $_ }).Count -gt 1) {
     throw 'Pass only one of -BinDir, -Package and -InstallDir.'
 }

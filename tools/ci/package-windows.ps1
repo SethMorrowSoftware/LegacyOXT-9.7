@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Packages a Windows x86-64 build (win-x86_64-bin) of OpenXTalk-Lite.
+    Packages a Windows x86-64 build (win-x86_64-bin) of LegacyOXT.
 
 .DESCRIPTION
     1. Runs tools/oxt/package.py, which writes the installed program folder
-       to <StageParent>\OpenXTalk-Lite-<ver>\ (default <OutDir>\stage\...): the
+       to <StageParent>\LegacyOXT-<ver>\ (default <OutDir>\stage\...): the
        IDE from ide\ and ide-support\, the build outputs at their installed
-       paths (the development engine as OpenXTalk-Lite.exe), the external assets
+       paths (the development engine as LiveCode Community.exe), the external assets
        of tools/oxt/external-assets.json, the xTalk Suite extensions of
        tools/oxt/xtalk-extensions.json (fetched from their repositories at
        the pinned commits and built with this build's lc-compile by
@@ -14,7 +14,7 @@
        product version in ide\.version.
 
        enetxt.dll and box2dxt.dll import the Visual C++ runtime, which the
-       OpenXTalk-Lite engine does not ship. The runtime DLLs are copied next to
+       LiveCode engine does not ship. The runtime DLLs are copied next to
        them from Visual Studio's redistributable folder (-VcRedist, else
        the one of VCToolsRedistDir and the Visual Studio installs vswhere
        finds that has the runtime pinned in tools/oxt/xtalk-extensions.json);
@@ -25,18 +25,18 @@
 
     2. Writes to OutDir (default <RepoRoot>\dist):
 
-      OpenXTalk-Lite-<ver>-win-x86_64-portable.zip
-          The staged program folder under one top folder OpenXTalk-Lite-<ver>\.
-          Extract it anywhere and run OpenXTalk-Lite.exe.
+      LegacyOXT-<ver>-win-x86_64-portable.zip
+          The staged program folder under one top folder LegacyOXT-<ver>\.
+          Extract it anywhere and run LiveCode Community.exe.
 
-      OpenXTalk-Lite-<ver>-win-x86_64-binaries.zip
+      LegacyOXT-<ver>-win-x86_64-binaries.zip
           win-x86_64-bin\ without *.pdb, plus the licence files. Extracting it
           into the root of a source checkout gives the same layout as a build.
 
-      OpenXTalk-Lite-<ver>-win-x86_64-symbols.zip
+      LegacyOXT-<ver>-win-x86_64-symbols.zip
           The *.pdb files, under win-x86_64-bin\ with their relative paths.
 
-      OpenXTalk-Lite-<ver>-xtalk-sources.zip (only with -XtalkSourcesZip)
+      LegacyOXT-<ver>-xtalk-sources.zip (only with -XtalkSourcesZip)
           Every file of the xTalk Suite extensions that
           tools/oxt/xtalk-extensions.json pins, in the layout of their
           download cache, with a copy of the manifest
@@ -55,7 +55,7 @@
 
     Under GitHub Actions the step outputs are: version and product-version
     (ide\.version), build-number, engine-version (BUILD_SHORT_VERSION),
-    package-root (OpenXTalk-Lite-<ver>), stage-dir (full path of the staged
+    package-root (LegacyOXT-<ver>), stage-dir (full path of the staged
     program folder), dist-dir and portable-zip.
 
     Written to run under Windows PowerShell 5.1 and PowerShell 7.
@@ -71,7 +71,7 @@
     the same names are replaced; other files are left alone.
 
 .PARAMETER StageParent
-    Folder in which package.py creates OpenXTalk-Lite-<ver>\ (an existing folder
+    Folder in which package.py creates LegacyOXT-<ver>\ (an existing folder
     of that name is replaced). Default: <OutDir>\stage.
 
 .PARAMETER BuildNumber
@@ -93,11 +93,11 @@
 .PARAMETER XtalkCache
     Download cache of the xTalk Suite extensions' files. Default: the
     environment variable OXT_XTALK_CACHE, else <AssetsCache>\xtalk. A
-    folder extracted from a release's OpenXTalk-Lite-<ver>-xtalk-sources.zip
+    folder extracted from a release's LegacyOXT-<ver>-xtalk-sources.zip
     holds every file that release pinned, so nothing is downloaded.
 
 .PARAMETER XtalkSourcesZip
-    Also write OpenXTalk-Lite-<ver>-xtalk-sources.zip (see above) to OutDir
+    Also write LegacyOXT-<ver>-xtalk-sources.zip (see above) to OutDir
     and list it in SHA256SUMS. CI sets it for tag builds.
 
 .PARAMETER VcRedist
@@ -158,8 +158,10 @@ if (-not ('System.IO.Compression.ZipFileExtensions' -as [type])) {
 
 $Platform = 'win-x86_64'
 $BinName = "$Platform-bin"
-$Product = 'OpenXTalk-Lite'
-$ExeName = "$Product.exe"
+# The package's name; the engine keeps LiveCode's installed name
+# (Installer/package.txt Engine.Windows: [[ProductName]].exe)
+$Product = 'LegacyOXT'
+$ExeName = 'LiveCode Community.exe'
 $LicenseFiles = @('LICENSE')
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
@@ -341,7 +343,8 @@ function Find-VcRedist {
     return $null
 }
 
-if ($env:NO_XTALK_EXTENSIONS -match '^(1|true|yes)$') { $NoXtalkExtensions = $true }
+# LiveCode's packages have no xTalk Suite extensions
+$NoXtalkExtensions = $true
 if ($XtalkSourcesZip -and $NoXtalkExtensions) {
     throw '-XtalkSourcesZip needs the xTalk Suite extensions; it cannot be combined with -NoXtalkExtensions or NO_XTALK_EXTENSIONS.'
 }
@@ -407,12 +410,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $StageDir $ExeName) -PathType Leaf))
     throw "The staged folder has no $ExeName ($StageDir)."
 }
 
-# Tom Perry's release has his icons and version information in its
-# OpenXTalk-Lite.exe, which he wrote in after the build; the staged engine
-# gets the same resources, from Installer\openxtalk-lite\from-tom-release
-# (tools/oxt/win_resources.py, which checks the result)
-$code = Invoke-Python @((Join-Path $RepoRoot 'tools\oxt\win_resources.py'), 'apply', (Join-Path $StageDir $ExeName))
-if ($code -ne 0) { throw "tools/oxt/win_resources.py failed with exit code $code" }
 
 $PortableZipName = "$PackageRoot-$Platform-portable.zip"
 $BinZipName = "$PackageRoot-$Platform-binaries.zip"
@@ -488,11 +485,12 @@ foreach ($rel in $binFiles) {
 Write-Host "Build output: $($binNoPdb.Count) files, plus $($binPdb.Count) *.pdb files"
 if ($binPdb.Count -eq 0) { Write-Warning "No *.pdb files in $BinDir; the symbols zip will be empty." }
 
-# The licence files as staged (package.py gives them CRLF line endings)
+# The licence files from the repository root (the installed layout has
+# LiveCode's own License Agreement.txt instead)
 $licenseEntries = New-Object System.Collections.Generic.List[object]
 foreach ($name in $LicenseFiles) {
-    $p = Join-Path $StageDir $name
-    if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { throw "$name is missing from the staged folder." }
+    $p = Join-Path $RepoRoot $name
+    if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { throw "$name is missing from the repository root." }
     $licenseEntries.Add((New-Entry $p $name))
 }
 

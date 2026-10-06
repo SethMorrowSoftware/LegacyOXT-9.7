@@ -1,0 +1,68 @@
+# The system libraries that LiveCode Community on Linux needs beyond glibc,
+# the GCC runtime (libstdc++, libgcc_s), zlib and OpenSSL, one per line:
+#
+#   <soname>  <use>  <Debian/Ubuntu package>  <Fedora package>
+#
+# <use> says what needs the library:
+#   core     the engine, even without a user interface (-ui)
+#   gui      the engine with its user interface: the IDE
+#   browser  the browser widget and revBrowser (CEF 74, x86_64 only)
+#
+# Debian package names are Debian 12's and Ubuntu 22.04's. Debian 13 and
+# Ubuntu 24.04 renamed some for the 64-bit time_t transition (libgtk2.0-0
+# is libgtk2.0-0t64 there); apt finds most of them by the old name too, but
+# not libasound2, so the CI asks apt-cache and uses the name with "t64"
+# where there is such a package.
+#
+# Read by the Linux CI only (LiveCode's packages have no launcher that
+# checks them): it installs the Debian packages on its test runner, and
+# tools/ci/check_linux_libraries.py fails when an ELF file of the package
+# needs a library (DT_NEEDED), or the engine loads one with dlopen (the
+# initialise_required_weak_link_* modules of engine/src/linux.stubs, and the
+# Pango modules of engine/src/lnxflst.cpp), that is neither listed here nor
+# part of the base system (tools/ci/check_native_deps.py LINUX_SYSTEM) or
+# the package.
+#
+# The engine: glib at start-up (dsklnxmain.cpp), FreeType and Fontconfig
+# (DT_NEEDED of the engine itself). With a screen (MCScreenDC::open): X11,
+# GObject, GDK, GdkPixbuf and Cairo, and Pango, PangoCairo and PangoFT2 for
+# all text. GTK 2 itself is optional to the engine (native theme and
+# dialogs), but it is the package that has GDK.
+libglib-2.0.so.0          core     libglib2.0-0          glib2
+libfontconfig.so.1        core     libfontconfig1        fontconfig
+libfreetype.so.6          core     libfreetype6          freetype
+libgobject-2.0.so.0       gui      libglib2.0-0          glib2
+libX11.so.6               gui      libx11-6              libX11
+libgdk-x11-2.0.so.0       gui      libgtk2.0-0           gtk2
+libgtk-x11-2.0.so.0       gui      libgtk2.0-0           gtk2
+libgdk_pixbuf-2.0.so.0    gui      libgdk-pixbuf-2.0-0   gdk-pixbuf2
+libcairo.so.2             gui      libcairo2             cairo
+libpango-1.0.so.0         gui      libpango-1.0-0        pango
+libpangocairo-1.0.so.0    gui      libpangocairo-1.0-0   pango
+libpangoft2-1.0.so.0      gui      libpangoft2-1.0-0     pango
+#
+# CEF (Externals/CEF/libcef.so, libGLESv2.so and the two helper processes):
+# their DT_NEEDED entries that are neither in the base system nor above.
+libgio-2.0.so.0           browser  libglib2.0-0          glib2
+libnss3.so                browser  libnss3               nss
+libnssutil3.so            browser  libnss3               nss-util
+libsmime3.so              browser  libnss3               nss
+libnspr4.so               browser  libnspr4              nspr
+libexpat.so.1             browser  libexpat1             expat
+libdbus-1.so.3            browser  libdbus-1-3           dbus-libs
+libasound.so.2            browser  libasound2            alsa-lib
+libatk-1.0.so.0           browser  libatk1.0-0           atk
+libatk-bridge-2.0.so.0    browser  libatk-bridge2.0-0    at-spi2-atk
+libatspi.so.0             browser  libatspi2.0-0         at-spi2-core
+libxcb.so.1               browser  libxcb1               libxcb
+libX11-xcb.so.1           browser  libx11-xcb1           libX11-xcb
+libXext.so.6              browser  libxext6              libXext
+libXcomposite.so.1        browser  libxcomposite1        libXcomposite
+libXrender.so.1           browser  libxrender1           libXrender
+libXcursor.so.1           browser  libxcursor1           libXcursor
+libXdamage.so.1           browser  libxdamage1           libXdamage
+libXfixes.so.3            browser  libxfixes3            libXfixes
+libXi.so.6                browser  libxi6                libXi
+libXtst.so.6              browser  libxtst6              libXtst
+libXss.so.1               browser  libxss1               libXScrnSaver
+libXrandr.so.2            browser  libxrandr2            libXrandr

@@ -16,7 +16,7 @@
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
 """Check that the browser widget, revBrowser and the player work in a
-standalone of an installed OpenXTalk-Lite, with a user interface.
+standalone of an installed LiveCode Community, with a user interface.
 
   python tools/ci/media_check.py (--install DIR | --package FILE)
       [--platform P] [--what widget,revbrowser,player] [--log FILE]
@@ -47,7 +47,7 @@ That engine then runs tools/ci/media-check.livecodescript, which
     reported without failing the check;
   - on Linux, clicks the controller the engine draws below mplayer's
     video: its play button plays and pauses, a click in its well seeks,
-    and the snapshots of what it draws show which. (Tom Perry's Linux
+    and the snapshots of what it draws show which. (LiveCode's Linux
     player draws no controller and runs none of mplayer's commands:
     KNOWN and KNOWN_NO_CONTROLLER report those failures without failing
     the check.) With --snapshots those
@@ -105,7 +105,7 @@ KNOWN = {
         'oxt-check.mp4': 'Windows: DirectShow cannot open MP4 without a third-party filter',
         'oxt-check-silent.mp4': 'Windows: DirectShow cannot open MP4 without a third-party filter',
     },
-    # Tom Perry's code has LiveCode 9.7's Linux player (engine/src/
+    # LiveCode 9.7's Linux player (engine/src/
     # lnxmplayer.cpp), which writes mplayer's slave commands without the
     # newline that ends each one, so mplayer runs none of them and plays
     # every file to its end whatever the script does
@@ -204,7 +204,7 @@ def windows_sound_devices():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description='Check the browser widget, revBrowser and the player in a standalone '
-                                             'of an installed OpenXTalk-Lite.')
+                                             'of an installed LiveCode Community.')
     ap.add_argument('--install', metavar='DIR', help='installed layout')
     ap.add_argument('--package', metavar='FILE', help='a package to extract and check like --install')
     ap.add_argument('--platform', choices=list(package.PLATFORMS),

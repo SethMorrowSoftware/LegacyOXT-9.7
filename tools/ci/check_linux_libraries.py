@@ -16,24 +16,23 @@
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
 """Check the system libraries of an extracted or staged Linux package of
-OpenXTalk-Lite against the list its launcher checks, and against this machine.
+LegacyOXT against tools/ci/linux-libraries.txt, and against this machine.
 
-  python tools/ci/check_linux_libraries.py --root <OpenXTalk-Lite-<version> folder>
+  python tools/ci/check_linux_libraries.py --root <LegacyOXT-<version> folder>
       [--libraries FILE] [--repo DIR] [--no-ldd] [--json FILE]
 
---libraries is the list the launcher reads (default
-<root>/linux/libraries.txt, from Installer/linux/libraries.txt). Every ELF
+--libraries is the list (default tools/ci/linux-libraries.txt). Every ELF
 file of the package built for this machine's architecture (the engine, the
 standalone engine, the externals and database drivers, CEF and its helpers,
 the toolchain and the extensions' libraries; files for other architectures,
-such as the 1.15 asset's x86-32 runtime, and for Android are counted and
+such as an x86-32 runtime and the Ext folder's 32-bit builds, and for Android are counted and
 skipped) is read
 with tools/oxt/binfmt.py, and three things are checked:
 
   list      every library it needs (DT_NEEDED) is a base-system library
             (tools/ci/check_native_deps.py LINUX_SYSTEM: glibc, the GCC
             runtime, zlib, OpenSSL), a file of the package, or in the list:
-            otherwise a user who lacks it gets no word from the launcher.
+            otherwise the list misses it.
             With --repo, the same for the libraries the engine loads with
             dlopen: every module of engine/src/linux.stubs that the engine
             requires (initialise_required_weak_link_<module>(), which ends
@@ -220,8 +219,8 @@ def run_ldd(path):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='Check the system libraries of a Linux OpenXTalk-Lite package.')
-    ap.add_argument('--root', required=True, help='the package folder (OpenXTalk-Lite-<version>)')
+    ap = argparse.ArgumentParser(description='Check the system libraries of a Linux LegacyOXT package.')
+    ap.add_argument('--root', required=True, help='the package folder (LegacyOXT-<version>)')
     ap.add_argument('--libraries', help='the launcher\'s list (default: <root>/linux/libraries.txt)')
     ap.add_argument('--repo', help='repository root: also check the libraries the engine loads with dlopen')
     ap.add_argument('--no-ldd', action='store_true', help='do not run ldd')
@@ -229,7 +228,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     gha = os.environ.get('GITHUB_ACTIONS') == 'true'
     root = os.path.abspath(args.root)
-    list_path = args.libraries or os.path.join(root, 'linux', 'libraries.txt')
+    list_path = args.libraries or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'linux-libraries.txt')
     if not os.path.isdir(root) or not os.path.isfile(list_path):
         sys.stderr.write('error: %s is not a Linux package folder (no %s)\n' % (root, list_path))
         return 2
@@ -273,7 +272,7 @@ def main(argv=None):
                 continue
             unlisted.setdefault(lib, []).append(rel)
     for lib, users in unlisted.items():
-        problems.append('%s needs %s, which is neither in the list (Installer/linux/libraries.txt), a base-system '
+        problems.append('%s needs %s, which is neither in the list (tools/ci/linux-libraries.txt), a base-system '
                         'library nor a file of the package' % (', '.join(users[:4]) + (' ...' if len(users) > 4 else ''),
                                                               lib))
 
@@ -319,7 +318,7 @@ def main(argv=None):
             f.write('\n')
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8', newline='\n') as f:
-            f.write('### Linux libraries\n\n%d ELF files for %s checked against `linux/libraries.txt`%s: %s.\n\n'
+            f.write('### Linux libraries\n\n%d ELF files for %s checked against `tools/ci/linux-libraries.txt`%s: %s.\n\n'
                     % (len(mine), arch, '' if args.no_ldd else ' and with ldd',
                        'passed' if not problems else '**%d problem(s)**' % len(problems)))
             for p in problems[:30]:

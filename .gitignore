@@ -145,3 +145,7 @@ LiveCodeUserGuide-*
 *.vcxproj.user
 .vs/
 __pycache__/
+
+# The mergExt bundle of the packages (Installer/legacyoxt/ext) is kept,
+# binaries included
+!Installer/legacyoxt/ext/**

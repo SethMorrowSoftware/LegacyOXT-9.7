@@ -1,0 +1,48 @@
+Library: mergMarkdown
+
+type: library
+
+Description:
+mergMarkdown is a simple external for translating a markdown file to XHTML using
+the [sundown](https://github.com/vmg/sundown) library. It has one function: 
+`mergMarkdownToXHTML`. There are a number of non-standard markdown features 
+implemented in sundown and these can be controlled with optional parameters 
+to the function.
+
+Version: 1.0.21
+
+Tags: Externals
+
+Name: mergMarkdownToXHTML
+
+Type: function
+
+Syntax: mergMarkdownToXHTML(<pMarkdown>, [<pNoIntraEmphasis>, <pTable>, <pFencedCode>, <pAutoLink>, <pStrikethrough>, <pSpaceHeaders>, <pSuperscript>, <pLaxSpacing>])
+
+Summary:  Returns the XHTML translation of the markdown document.
+
+Introduced: 8.0
+
+OS: ios,android,linux,mac,windows
+
+Platforms: mobile,desktop,server
+
+Parameters:
+pMarkdown (string): The markdown text to translate.
+pNoIntraEmphasis (boolean):  Don't add emphasis if there is no space on either 
+side of the 
+underscores. If true _this_ will be emphasized but_this_won't be.
+pTable (boolean):  Support tables.
+pFencedCode (boolean):  Support fenced code.
+pAutoLink (boolean): Auto link urls in the text
+pStrikethrough (boolean): Use a double tilde(~) either side of a word to 
+indicate ~~strikethrough~~
+pSpaceHeaders (boolean): If true forces a space after the # for headers
+pSuperscript (boolean): If true use ^ to indicate the start of a superscript 
+word
+pLaxSpacing (boolean): If true allows lax spacing. For example it will allow no 
+space between a paragraph and a list.
+Returns:  XHTML
+
+Example:
+put mergMarkdownToXHTML(theMarkdownText,,true) into theHTML

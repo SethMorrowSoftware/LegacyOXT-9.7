@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU General Public License
 # along with OXT-Beyond.  If not see <http://www.gnu.org/licenses/>.
 
-"""Sign OpenXTalk-Lite.app (or a macOS build output) ad hoc, from the inside
+"""Sign the LiveCode app (or a macOS build output) ad hoc, from the inside
 out, and verify the result.
 
   python tools/ci/sign_mac_app.py TARGET [--dry-run] [--no-verify]
 
-TARGET is an .app bundle (the staged OpenXTalk-Lite.app) or a folder (the
+TARGET is an .app bundle (the staged app) or a folder (the
 merged Release tree, whose binaries archive is published). Every piece of
 macOS code in it is signed with
 
@@ -144,6 +144,14 @@ def plan(target):
     bundles, files, skipped = [], [], []
     main_exes = set()
     for dirpath, dirnames, filenames in os.walk(target):
+        # package.txt component Ext: the mergExt bundle, signed by its
+        # maker and installed byte for byte as LiveCode's installers have it
+        # (Installer/legacyoxt/ext)
+        parts = os.path.normpath(dirpath).split(os.sep)
+        if parts[-2:] == ['Tools', 'Ext']:
+            skipped.append((dirpath, 'LiveCode\'s mergExt bundle (package.txt Ext), kept as it is'))
+            dirnames[:] = []
+            continue
         # .dSYM bundles hold debug information, not code
         for d in [d for d in dirnames if d.endswith('.dSYM')]:
             skipped.append((os.path.join(dirpath, d), 'debug symbols (.dSYM), not code'))
@@ -202,7 +210,7 @@ def run(cmd):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='Sign OpenXTalk-Lite.app or a macOS build output ad hoc, from the inside '
+    ap = argparse.ArgumentParser(description='Sign the LiveCode app or a macOS build output ad hoc, from the inside '
                                              'out, and verify it.')
     ap.add_argument('target', help='the .app bundle, or a build output folder')
     ap.add_argument('--dry-run', action='store_true', help='print the signing order only')

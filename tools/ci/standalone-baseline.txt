@@ -2,34 +2,4 @@
 # message per line exactly as the check prints it; text after "#" is a
 # comment. A problem listed here is reported but does not fail the check.
 #
-# These are faults of OpenXTalk Lite 1.15's own standalone runtimes, which
-# the packages carry unchanged (the external asset oxt-runtimes-1.15, from
-# Tom Perry's Windows release), not of anything built here.
-
-# The Linux x86-64 runtime's revpdfprinter.so is a 32-bit (i386) library,
-# as OpenXTalk Lite 1.15 shipped it, so a 64-bit Linux standalone cannot
-# load it. Only the Windows and macOS packages carry that runtime: the
-# Linux x86-64 package has the one its build makes, so there this entry
-# is reported as not occurring.
-Runtime/Linux/x86-64/Support/revpdfprinter.so is ELF x86, expected ELF x86_64
-
-# The same runtime's revsecurity.so (OpenSSL for a standalone) is 32-bit
-# too, and it has no externals at all: its Externals folder holds only
-# empty folders, without the Externals.txt and Database Drivers.txt that
-# list them, so a 64-bit Linux standalone gets none (Windows and macOS
-# packages only, as above).
-Runtime/Linux/x86-64/Support/revsecurity.so is ELF x86, expected ELF x86_64
-Runtime/Linux/x86-64/Externals/Externals.txt is missing
-Runtime/Linux/x86-64/Externals/Database Drivers/Database Drivers.txt is missing
-
-# The Linux x86-32 runtime lists revbrowser.so in Externals.txt but has no
-# CEF library (its Externals/CEF holds only empty locales and swiftshader
-# folders), as OpenXTalk Lite 1.15 shipped it, so a 32-bit Linux
-# standalone that uses revBrowser cannot open a browser.
-Runtime/Linux/x86-32/Externals/CEF/libcef.so is missing
-
-# The Windows x86-32 runtime is stock LiveCode Community 9.6.3 (its
-# PROVENANCE.md: all 86 files byte-identical to 9.6.3's), not a
-# 9.7.1-OXT engine: OpenXTalk Lite 1.15 shipped 32-bit Windows standalones
-# built on LiveCode 9.6.3. Seen where the check can run it (Windows).
-win-x86: the standalone reports version '9.6.3', expected '9.7.1-OXT'
+# None: every runtime in the packages is built here from LiveCode's source.

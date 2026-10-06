@@ -595,10 +595,12 @@ Files:
   README is at `git show livecode-9.7.0-dp-1:README.md`.
 - `.gitattributes`: line endings that the Windows build needs (CRLF for
   `.bat` and `.cmd`, which cmd.exe misreads otherwise; LF for the
-  workflows and the prebuilt libraries' checksums) and binary file types
-  of the IDE stored byte for byte.
+  workflows and the prebuilt libraries' checksums), binary file types of
+  the IDE stored byte for byte, and the mergExt bundle of the packages
+  (`Installer/legacyoxt/ext`) kept byte for byte.
 - `.gitignore`: build and CI leftovers (archives, Visual Studio and
-  Python caches).
+  Python caches), and an exception that keeps the mergExt bundle's
+  libraries (`*.dll`, `*.so`, which LiveCode's rules ignore).
 
 ## Tests
 

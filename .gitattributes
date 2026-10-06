@@ -55,3 +55,7 @@ prebuilt/cef-sha1sums text eol=lf
 *.sqlite binary
 *.mp4 binary
 *.zip binary
+# The mergExt bundle of the packages, byte for byte as LiveCode's installers
+# have it
+Installer/legacyoxt/ext/** -text
+Installer/legacyoxt/ext/README.md text
