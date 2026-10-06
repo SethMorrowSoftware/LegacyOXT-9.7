@@ -1,108 +1,77 @@
-# LiveCode Community Edition
+# LegacyOXT 9.7: LiveCode Community 9.7.0-dp-1, built from source
 
-![LiveCode Community Logo](http://livecode.com/wp-content/uploads/2015/02/livecode-logo.png)
+This repository builds **LiveCode Community 9.7.0-dp-1**, the last build of
+LiveCode Community's `develop` branch (livecode/livecode `4606a10ea`,
+2021-07-26), on today's systems, with continuous integration around it:
+builds for Windows, macOS and Linux and LiveCode's own test suites.
+LiveCode's code is kept as LiveCode Ltd left it: nothing is fixed or
+improved. Every difference from its source is listed, with its reason, in
+**[CHANGES-FROM-LIVECODE.md](CHANGES-FROM-LIVECODE.md)**, and CI checks
+that the list is complete.
 
-Copyright © 2003-2019 LiveCode Ltd., Edinburgh, UK
+LegacyOXT is not affiliated with or endorsed by LiveCode Ltd. "LiveCode" is
+a trademark of LiveCode Ltd; it is used here only to say what the source
+is. LiveCode Community is free software under the GNU General Public
+License version 3 (see [`LICENSE`](LICENSE)). LiveCode's own README is at
+`git show livecode-9.7.0-dp-1:README.md`.
 
-## Introduction
+It is the vanilla base that OpenXTalk Lite (Tom Perry's
+[OpenXTalk-Lite-1.15](https://github.com/SethMorrowSoftware/OpenXTalk-Lite-1.15))
+and [OXT-Beyond](https://github.com/SethMorrowSoftware/OpenXTalk-Beyond)
+were built on, and so the reference they can be compared against.
 
-The LiveCode Community open source platform provides a way to build applications for mobile, desktop and server platforms.
+## What is in it
 
-The visual workflow allows the user to develop apps "live", using a powerful and uniquely-accessible language syntax.
+```
+LiveCode Community history, up to develop 4606a10ea (2021-07-26, 9.7.0-dp-1)
+  Vendor thirdparty submodule into the repository
+  Vendor the ide submodule into the repository        <- tag livecode-9.7.0-dp-1
+  build fixes (CHANGES-FROM-LIVECODE.md)
+  CI and tests
+```
 
-[LiveCode Ltd.](http://livecode.com/), based in Edinburgh, UK, coordinates development of LiveCode and has run the open source project since LiveCode Community was first released in April 2013.
+The tag `livecode-9.7.0-dp-1` is LiveCode's commit with its `ide` and
+`thirdparty` submodules vendored at the commits it pins (livecode-ide
+`ccc733a15`, livecode-thirdparty `e5e050573`), whose trees are byte for
+byte those of LiveCode's archived repositories on GitHub. The program keeps
+LiveCode's own names (`LiveCode-Community.exe`, `LiveCode-Community.app`).
 
-You can download pre-compiled versions of the LiveCode Community development environment from the [LiveCode download centre](http://downloads.livecode.com/livecode/).
+The build fixes come from OXT-Beyond and OpenXTalk-Lite-1.15, without any
+of OpenXTalk's own changes: Visual Studio 2022, current Xcode and macOS
+SDKs, Apple Silicon (LiveCode built macOS for Intel only), current Linux,
+and LiveCode's prebuilt libraries, which its server no longer serves.
 
-## Overview
+## CI
 
-### Subproject directories
+| workflow | what it does |
+|---|---|
+| [Build (Windows)](.github/workflows/build-windows.yml) | x86-64 build with LiveCode's own prebuilt libraries; smoke test, IDE compile check and engine tests on the build |
+| [Build (macOS)](.github/workflows/build-macos.yml) | arm64 and x86_64 builds; smoke test, IDE compile check and engine tests on each |
+| [Build (Linux)](.github/workflows/build-linux.yml) | x86_64, arm64 and x86 builds; smoke test, IDE compile check and engine tests on each |
+| [Pristine guard](.github/workflows/pristine-guard.yml) | every difference from LiveCode's source is in CHANGES-FROM-LIVECODE.md |
 
-This repository contains a number of subprojects, each of which has its own subdirectory.  They can be divided into three main categories.
+Every check compares its failures with a baseline
+(`tools/ci/engine-tests-baseline*.txt`, `tools/ci/ide-compile-baseline*.txt`).
+A failure not in the baseline fails the job. A baseline line records how
+LiveCode's code behaves, often caught by one of OXT-Beyond's regression
+tests for a bug it fixed; each has a comment saying which.
 
-1. Main system:
+Packages (installers, disk images, archives) and releases are next.
 
-  * `engine/` — The main LiveCode engine.  This directory produces the IDE, "standalone", "installer" and "server" engines
+## Libraries
 
-2. Non-third-party libraries:
+- **Windows**: LiveCode's own x86-64 (MSVC v141) prebuilt libraries,
+  OpenSSL 1.1.1g, curl 7.51.0, ICU 58.2, CEF 74.1.19, as `prebuilt/versions`
+  pins them, from the mirror
+  [`prebuilts-v1`](https://github.com/SethMorrowSoftware/OpenXTalk-Beyond/releases/tag/prebuilts-v1),
+  each checked against `prebuilt/SHA256SUMS`.
+- **Linux and macOS**: the same versions built from source in CI (OpenSSL
+  1.1.1w instead of 1.1.1g, which cannot be linked on arm64), cached.
 
-  * `libcore/` — A static library that provides various basic functions and types, and is used by many of the other subprojects
+## Credits
 
-  * `libexternal/` and `libexternalv1` — Static libraries that support the LiveCode "external" interface, which allows the engine to load plugins
-
-3. Externals (libraries that can be dynamically loaded into the engine at runtime):
-
-  * `revdb/` — Database access external, and drivers for various backend database systems
-
-  * `revmobile/` — The iOS support external (which can only be built on Mac) and the Android support external (available on all desktop platforms)
-
-  * `revpdfprinter/` — Print-to-PDF functionality
-
-  * `revspeech/` — Text-to-speech support
-
-  * `revvideograbber/` — Video capture (Windows only)
-
-  * `revxml/` — XML parsing and generation
-
-  * `revzip/` - Zip archive management
-
-### Engine flavours
-
-The engine — which loads, saves, manages and runs LiveCode stack files — can be built in several different specialized modes, which are adapted for various specific purposes.  They are exposed as separate targets in the build system.
-
-1. **IDE engine** (`development` target)— Used to run the IDE.  It contains extra support for things like syntax handling and building LiveCode "standalone" programs.
-
-2. **Installer engine** (`installer` target) — Used to create the LiveCode installer.  It contains extra support for things like handling zip archives and comparing binary files.
-
-3. **Server engine** (`server` target) — This is the engine used in a server context, when no graphical user interface is needed.  It contains server-specific functions such as CGI support.  It also has a much fewer system library dependencies (and requires only non-desktop APIs where possible).
-
-4. **Standalone engine** (`standalone` target) — The engine that is embedded in "standalone apps" created with LiveCode.
-
-## Compiling LiveCode
-
-LiveCode uses the [gyp (Generate Your Projects)](https://chromium.googlesource.com/external/gyp.git) tool to generate platform-specific project files.  It can generate `xcodeproj` files for Xcode on Mac, `vcproj` files for Microsoft Visual Studio, and makefiles for compiling on Linux.
-
-### Quick start
-
-**Note**: You can only compile LiveCode from a clone of the
-[LiveCode git repository](https://github.com/livecode/livecode) on
-GitHub.  See also the GitHub documentation on
-[cloning a repository](https://help.github.com/articles/cloning-a-repository/).
-
-On Linux or Mac, you can quickly build LiveCode by installing basic development tools, and then running `make all`.
-
-### Detailed instructions
-
-Please see the following table, which shows which target platforms are supported by which host platforms.  The documentation for compiling for each target platform is linked.
-
-| Target platform                                            | Host platforms    |
-| ---------------------------------------------------------- | ----------------- |
-| [mac, ios](docs/development/build-mac.md)                  | mac               |
-| [win](docs/development/build-win.md)                       | win, linux (Wine) |
-| [linux](docs/development/build-linux.md)                   | linux             |
-| [android](docs/development/build-android.md)               | mac, linux        |
-| [emscripten (html5)](docs/development/build-emscripten.md) | linux             |
-
-## Getting help
-
-There are several ways to get help with installing and using LiveCode:
-
-* If you have a LiveCode Commercial subscription, you may [contact LiveCode Support](mailto:support@livecode.com).
-
-* Ask a question on the ["use-livecode" mailing list](http://lists.runrev.com/mailman/listinfo/use-livecode), or search the the mailing list archives for previous answers to similar questions
-
-* Visit the [LiveCode open source forums](http://forums.livecode.com/viewforum.php?f=65).  In particular, you may wish to post your question in the [Engine Contributors](http://forums.livecode.com/viewforum.php?f=66) forum.
-
-* If you have discovered a bug, have a feature request, or have written a patch to improve LiveCode, please create an ticket in the [LiveCode issue tracking system](http://quality.livecode.com/).
-
-## Contributing to LiveCode
-
-For information on modifying LiveCode and submitting contributions to the LiveCode Community project, please see the [CONTRIBUTING](CONTRIBUTING.md) file.
-
-## License
-
-LiveCode Community is freely distributable under the GNU Public License (GPL), with some special exceptions.  For more information, please see the [LICENSE](LICENSE) file in this repository.
-
-The LiveCode Community engine, libraries, and associated files are, unless otherwise noted:
-
-Copyright © 2003-2019 LiveCode Ltd.
+- **LiveCode Ltd** and the LiveCode Community contributors wrote LiveCode
+  Community.
+- The build fixes and CI come from **OXT-Beyond** and its contributors,
+  and some of the macOS portability fixes from **Tom Perry**'s OpenXTalk
+  Lite macOS work.
