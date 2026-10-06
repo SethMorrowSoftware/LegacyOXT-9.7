@@ -235,6 +235,22 @@ ROOT_IDE_FILES = (
      'repo:LiveCodeNotes-<version>.pdf'),
 )
 
+# The repository's own guides (docs/guides), which package.txt copies into
+# Documentation/guides: their paths below docs/guides, from the checkout
+def _repo_guides():
+    base = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                        'docs', 'guides')
+    out = []
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith('.'))
+        for name in sorted(filenames):
+            if not name.startswith('.'):
+                out.append(os.path.relpath(os.path.join(dirpath, name), base).replace(os.sep, '/'))
+    return tuple(out)
+
+
+REPO_GUIDES = _repo_guides()
+
 # Files OXT Lite shipped that this project does not redistribute, with the
 # reason. They are left out of the repository and its packages.
 NOT_REDISTRIBUTABLE = (
@@ -344,9 +360,14 @@ def _rules():
     add(Rule('Resources/Mobile Examples/**', IDE, 'ide/Resources/Mobile Examples/',
              'package.txt Mobile.MacOSX: macOS installs only'))
     add(Rule('Resources/**', IDE, 'ide/Resources/', 'package.txt Resources: ide:Resources'))
+    # package.txt Documentation also copies the repository's own guides
+    # (rfolder "repo:docs/guides") into Documentation/guides, next to the
+    # IDE's (rfolder "ide:Documentation/guides"); no name is in both
+    for rel in REPO_GUIDES:
+        add(Rule('Documentation/guides/' + rel, IDE, 'docs/guides/' + rel,
+                 'package.txt Documentation: rfolder repo:docs/guides'))
     add(Rule('Documentation/**', IDE, 'ide/Documentation/',
-             'package.txt Documentation: ide:Documentation (OXT ships its '
-             'own Documentation tree)'))
+             'package.txt Documentation: ide:Documentation'))
 
     # --- Extensions ------------------------------------------------------
     add(Rule('Extensions/com.livecode.library.timezone/code/x86_64-win32/**', BUILD, None,

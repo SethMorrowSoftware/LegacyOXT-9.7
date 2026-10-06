@@ -734,6 +734,33 @@ jobs:
           python3 --version
           ldd --version | sed -n 1p
 
+      # The IDE's documentation data (the Dictionary and the guides), built
+      # by LiveCode's own docs builder with this build's engine, as
+      # LiveCode's build machines did before packaging
+      # (tools/ci/build_docs.sh): written into the checkout's
+      # ide/Documentation/html_viewer/resources/data, where package.py
+      # takes it, and uploaded as the artifact LegacyOXT-docs
+      - name: Build the documentation data
+        id: docs
+        timeout-minutes: 30
+        env:
+          BIN_TAR: ${{ runner.temp }}/ci-build/LegacyOXT-linux-x86_64-bin.tar.xz
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs" "$RUNNER_TEMP/docs-build"
+          tar -C "$RUNNER_TEMP/docs-build" -xJf "$BIN_TAR"
+          tools/ci/build_docs.sh "$RUNNER_TEMP/docs-build/linux-x86_64-bin" "$RUNNER_TEMP/docs-work" \
+            2>&1 | tee "$RUNNER_TEMP/logs/build-docs.log"
+          rm -rf "$RUNNER_TEMP/docs-build"
+
+      - name: Upload the documentation data
+        if: ${{ steps.docs.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: LegacyOXT-docs
+          path: ide/Documentation/html_viewer/resources/data
+          if-no-files-found: error
+          retention-days: 30
+
       # The same cache as build-windows.yml (see there): the external
       # assets' archives. The cache version includes the runner's OS, so
       # these entries are Linux's own.
